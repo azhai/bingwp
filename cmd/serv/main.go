@@ -17,7 +17,7 @@ func main() {
 	options, _ := cmd.GetOptions()
 	models.Setup()
 	if options.UpdateData {
-		_, err := FetchWallPapers()
+		err := FetchWallPapers()
 		if err != nil {
 			panic(err)
 		}

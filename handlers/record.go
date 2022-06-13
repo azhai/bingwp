@@ -81,7 +81,7 @@ func parseMsgData(body string) (data map[string]any) {
 
 // SaveMsgData 保存到数据库
 func SaveMsgData(writeSize int) {
-	var rows []map[string]any
+	var rows []any
 	// table := (db.MessageModel{}).TableName()
 	table := "t_message"
 	tick := time.Tick(1 * time.Second)
