@@ -16,11 +16,15 @@ func main() {
 	runtime.GOMAXPROCS(1)
 	options, _ := cmd.GetOptions()
 	models.Setup()
-	go handlers.SaveMsgData(options.MaxWriteSize)
 	if options.UpdateData {
-		FetchWallPapers()
+		_, err := FetchWallPapers()
+		if err != nil {
+			panic(err)
+		}
+		return
 	}
 
+	go handlers.SaveMsgData(options.MaxWriteSize)
 	addr := fmt.Sprintf("%s:%d", options.Host, options.Port)
 	err := NewApp("BingWallPaper").Listen(addr)
 	if err == nil {

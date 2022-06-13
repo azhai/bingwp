@@ -8,53 +8,64 @@ package main
 import (
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/azhai/bingwp/cmd"
+	db "github.com/azhai/bingwp/models/default"
 	"github.com/azhai/bingwp/utils"
-	"golang.org/x/net/html"
 
-	hq "github.com/antchfx/htmlquery"
+	"github.com/PuerkitoBio/goquery"
+	xq "github.com/azhai/xgen/xquery"
+	"github.com/k0kubun/pp"
 	"github.com/parnurzeal/gorequest"
 )
 
 const (
 	UserAgent          = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Edg/90.0.818.66"
-	WallPaperURL       = "https://bing.wilii.cn/ymd.asp?ismobile=0"
+	SiteHomeUrl        = "https://bing.wilii.cn"
+	SiteListPath       = "/ymd.asp?ismobile=0"
+	IdLinkPrefix       = "photo.html?id="
 	CurrentPathDir     = "images/"
 	dateFirst, dateUHD = "2009-07-13", "2020-09-01"
 )
 
-type WallPaper struct {
-	Image, Title, Date string
-}
-
 // FetchWallPapers 获取Bing背景图列表
-func FetchWallPapers() (papers []WallPaper, err error) {
+func FetchWallPapers() (papers []*db.WallDaily, err error) {
 	date := time.Now().Format("2006-01-02")
 	_, listUrl := GetMonthDirAndUrl(date)
-	resp, body, errs := CreateSpider().Get(listUrl).End()
+	resp, _, errs := CreateSpider().Get(listUrl).End()
 	if len(errs) > 0 {
 		err = errs[0]
 		return
 	}
-	fmt.Println(body)
-	var htmlDoc *html.Node
-	if htmlDoc, err = hq.Parse(resp.Body); err != nil {
+	var doc *goquery.Document
+	doc, err = goquery.NewDocumentFromReader(resp.Body)
+	if err != nil || doc == nil {
+		return
+	}
+	sect := doc.Find("section.bg-section-secondary").First()
+	if sect == nil {
 		return
 	}
 
-	divCards, err := hq.QueryAll(htmlDoc, "//div[@class=\"card progressive\"]")
-	for _, card := range divCards {
-		imgSrc := hq.SelectAttr(hq.FindOne(card, "//img/@src"), "src")
-		wp := WallPaper{Image: imgSrc}
-		desc := hq.FindOne(card, "//div[@class=\"description\"]")
-		wp.Title = hq.InnerText(hq.FindOne(desc, "//h3"))
-		cal := hq.FindOne(desc, "//p[@class=\"calendar\"]")
-		wp.Date = hq.InnerText(hq.FindOne(cal, "//em"))
+	linkSize := len(IdLinkPrefix)
+	sect.Find("div.card").Each(func(i int, card *goquery.Selection) {
+		wp := &db.WallDaily{MaxDpi: "400x240"}
+		imgSrc := card.Find("img").First().AttrOr("src", "")
+		wp.OrigUrl = xq.NewNullString(imgSrc)
+		dataDiv := card.Find("div.title").First()
+		wp.Title = dataDiv.Find("div.name").First().Text()
+		date := dataDiv.Find("div.date").First().Text()
+		wp.BingDate, _ = time.Parse("2006-01-02", date)
+		link := dataDiv.Find("a").First().AttrOr("href", "")
+		if strings.HasPrefix(link, IdLinkPrefix) {
+			wp.Id, _ = strconv.Atoi(link[linkSize:])
+		}
 		papers = append(papers, wp)
-	}
+		pp.Println(wp)
+	})
 
 	return
 }
@@ -63,7 +74,7 @@ func GetMonthDirAndUrl(date string) (saveDir, listUrl string) {
 	year, month := date[:4], date[5:7]
 	saveDir = filepath.Join(CurrentPathDir, year+month)
 	month = strings.TrimLeft(month, "0")
-	listUrl = WallPaperURL + fmt.Sprintf("&y=%s&m=%s", year, month)
+	listUrl = fmt.Sprintf("%s%s&y=%s&m=%s", SiteHomeUrl, SiteListPath, year, month)
 	return
 }
 
