@@ -7,6 +7,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"github.com/azhai/bingwp/utils"
 
 	"github.com/PuerkitoBio/goquery"
+	xutils "github.com/azhai/xgen/utils"
 	xq "github.com/azhai/xgen/xquery"
 	"github.com/parnurzeal/gorequest"
 )
@@ -24,33 +26,54 @@ import (
 const (
 	UserAgent      = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Edg/90.0.818.66"
 	SiteHomeUrl    = "https://bing.wilii.cn"
-	SiteListPath   = "/ymd.asp?ismobile=0"
+	SiteListUrl    = "https://bing.wilii.cn/ymd.asp?ismobile=0"
+	SiteNoteUrl    = "https://api.wilii.cn/bing/binglist.ashx?DictType=Detail"
 	IdLinkPrefix   = "photo.html?id="
 	CurrentPathDir = "images/"
-	dateFirst      = "2009-07-01"
+	dateFirst      = "2009-07-13"
 	dateZero       = "2008-12-31"
 )
 
+type WallDict struct {
+	Longitude string           `json:"map_longitude"`
+	Latitude  string           `json:"map_latitude"`
+	Keyword   string           `json:"keyword"`
+	Headline  string           `json:"Headline"`
+	QuickFact string           `json:"quickFact"`
+	Title     string           `json:"map_title"`
+	TitleE    string           `json:"map_titleE"`
+	Para1     string           `json:"map_para1"`
+	Para1E    string           `json:"map_para1E"`
+	Tags      []map[string]any `json:"tags"`
+}
+
 // FetchWallPapers 获取Bing背景图列表
 func FetchWallPapers() (err error) {
-	monthBegin := time.Now().AddDate(0, 0, 1-time.Now().Day())
-	date := monthBegin.Format("2006-01-02")
-	for date >= dateFirst {
+	stopId, stopDate := 0, MustParseDate(dateFirst)
+	row := new(db.WallDaily)
+	var ok bool
+	ok, err = row.Load(xq.WithOrderBy("bing_date", true))
+	if ok && err == nil {
+		stopId, stopDate = row.OrigId, row.BingDate
+	}
+	stopUnix := GetMonthBegin(stopDate).Unix()
+	tempDate := GetMonthBegin(time.Now())
+	for tempDate.Unix() >= stopUnix {
+		date := tempDate.Format("2006-01-02")
 		_, listUrl := GetMonthDirAndUrl(date)
 		fmt.Println(listUrl)
-		err = FetchList(CreateSpider(), listUrl)
+		err = FetchList(listUrl, stopId)
 		if err != nil {
 			panic(err)
 		}
-		monthBegin = monthBegin.AddDate(0, -1, 0)
-		date = monthBegin.Format("2006-01-02")
+		tempDate = tempDate.AddDate(0, -1, 0)
 		time.Sleep(200 * time.Millisecond)
 	}
 	return
 }
 
-func FetchList(spider *gorequest.SuperAgent, url string) (err error) {
-	resp, _, errs := spider.Get(url).End()
+func FetchList(url string, stopId int) (err error) {
+	resp, _, errs := CreateSpider().Get(url).End()
 	if len(errs) > 0 {
 		err = errs[0]
 		return
@@ -65,35 +88,124 @@ func FetchList(spider *gorequest.SuperAgent, url string) (err error) {
 		return
 	}
 
-	zeroUnix := MustDate(dateZero).Unix()
+	zeroUnix := MustParseDate(dateZero).Unix()
 	linkSize, rows := len(IdLinkPrefix), []any{}
+	var cards []*goquery.Selection
 	sect.Find("div.card").Each(func(i int, card *goquery.Selection) {
+		cards = append(cards, card)
+	})
+	for _, card := range cards {
 		wp := &db.WallDaily{MaxDpi: "400x240"}
 		imgSrc := card.Find("img").First().AttrOr("src", "")
 		wp.OrigUrl = xq.NewNullString(imgSrc)
 		dataDiv := card.Find("div.title").First()
-		wp.Title = dataDiv.Find("div.name").First().Text()
+		wp.Brief = dataDiv.Find("div.name").First().Text()
 		date := dataDiv.Find("div.date").First().Text()
-		wp.BingDate = MustDate(date)
+		wp.BingDate = MustParseDate(date)
 		wp.Id = int((wp.BingDate.Unix() - zeroUnix) / 86400)
 		link := dataDiv.Find("a").First().AttrOr("href", "")
 		if strings.HasPrefix(link, IdLinkPrefix) {
 			wp.OrigId, _ = strconv.Atoi(link[linkSize:])
 		}
+		if wp.OrigId <= stopId {
+			break
+		}
 		rows = append(rows, wp)
-	})
+		err = FetchNotes(wp)
+		err = FetchImage(wp)
+	}
 	if len(rows) > 0 {
 		table := (db.WallDaily{}).TableName()
-		err = db.InsertBatch(table, rows)
+		err = db.InsertBatch(table, rows...)
 	}
 	return
 }
 
 func FetchImage(row *db.WallDaily) (err error) {
+	url := SiteHomeUrl + row.OrigUrl.String
+	fname := row.BingDate.Format("20060102") + ".jpg"
+	fdir := "data/thumbs/" + row.BingDate.Format("200601")
+	if err = os.MkdirAll(fdir, 0o755); err == nil {
+		err = utils.Download(url, fname, fdir, 1)
+	}
+	if err != nil {
+		return
+	}
+	thumb := &db.WallImage{DailyId: row.Id, Id: row.Id*2 - 1}
+	image := &db.WallImage{DailyId: row.Id, Id: row.Id * 2}
+	table := (db.WallImage{}).TableName()
+	err = db.InsertBatch(table, thumb, image)
 	return
 }
 
 func FetchNotes(row *db.WallDaily) (err error) {
+	url := fmt.Sprintf("%s&id=%d", SiteNoteUrl, row.OrigId)
+	_, body, errs := CreateSpider().Get(url).End()
+	if len(errs) > 0 {
+		err = errs[0]
+		return
+	}
+	data := []WallDict{}
+	_, err = xutils.UnmarshalJSON([]byte(body), &data)
+	if err != nil || len(data) == 0 {
+		return
+	}
+	dict, notes := data[0], make([]any, 0)
+	if dict.Longitude != "" {
+		loc := &db.WallLocation{DailyId: row.Id}
+		loc.Longitude, _ = strconv.ParseFloat(dict.Longitude, 64)
+		if dict.Latitude != "" {
+			loc.Latitude, _ = strconv.ParseFloat(dict.Latitude, 64)
+		}
+		table := (db.WallLocation{}).TableName()
+		err = db.InsertBatch(table, loc)
+	}
+	if len(dict.Tags) > 0 {
+		tags := make([]any, 0)
+		for _, oneTag := range dict.Tags {
+			if word, ok := oneTag["word"]; ok {
+				tag := &db.WallTag{DailyId: row.Id, TagName: word.(string)}
+				tags = append(tags, tag)
+			}
+		}
+		table := (db.WallTag{}).TableName()
+		err = db.InsertBatch(table, tags...)
+	}
+	if dict.Keyword != "" {
+		note := &db.WallNote{DailyId: row.Id, NoteType: "keyword"}
+		note.NoteChinese = xq.NewNullString(dict.Keyword)
+		notes = append(notes, note)
+	}
+	if dict.Headline != "" {
+		note := &db.WallNote{DailyId: row.Id, NoteType: "headline"}
+		note.NoteChinese = xq.NewNullString(dict.Headline)
+		notes = append(notes, note)
+	}
+	if dict.QuickFact != "" {
+		note := &db.WallNote{DailyId: row.Id, NoteType: "quick_fact"}
+		note.NoteChinese = xq.NewNullString(dict.QuickFact)
+		notes = append(notes, note)
+	}
+	if dict.Title != "" {
+		note := &db.WallNote{DailyId: row.Id, NoteType: "title"}
+		note.NoteChinese = xq.NewNullString(dict.Title)
+		if dict.TitleE != "" {
+			note.NoteEnglish = xq.NewNullString(dict.TitleE)
+		}
+		notes = append(notes, note)
+	}
+	if dict.Para1 != "" {
+		note := &db.WallNote{DailyId: row.Id, NoteType: "paragraph"}
+		note.NoteChinese = xq.NewNullString(dict.Para1)
+		if dict.Para1E != "" {
+			note.NoteEnglish = xq.NewNullString(dict.Para1E)
+		}
+		notes = append(notes, note)
+	}
+	if len(notes) > 0 {
+		table := (db.WallNote{}).TableName()
+		err = db.InsertBatch(table, notes...)
+	}
 	return
 }
 
@@ -101,7 +213,7 @@ func GetMonthDirAndUrl(date string) (saveDir, listUrl string) {
 	year, month := date[:4], date[5:7]
 	saveDir = filepath.Join(CurrentPathDir, year+month)
 	month = strings.TrimLeft(month, "0")
-	listUrl = fmt.Sprintf("%s%s&y=%s&m=%s", SiteHomeUrl, SiteListPath, year, month)
+	listUrl = fmt.Sprintf("%s&y=%s&m=%s", SiteListUrl, year, month)
 	return
 }
 
@@ -115,10 +227,14 @@ func CreateSpider() *gorequest.SuperAgent {
 	return client.Clone()
 }
 
-func MustDate(date string) time.Time {
+func MustParseDate(date string) time.Time {
 	obj, err := time.Parse("2006-01-02", date)
-	if err == nil {
+	if err != nil {
 		panic(err)
 	}
 	return obj
+}
+
+func GetMonthBegin(obj time.Time) time.Time {
+	return obj.AddDate(0, 0, 1-obj.Day())
 }

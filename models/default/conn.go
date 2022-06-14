@@ -33,7 +33,10 @@ func Engine() *xorm.Engine {
 // Query 生成查询
 func Query(opts ...xq.QueryOption) *xorm.Session {
 	qr := Engine().NewSession()
-	return xq.ApplyOptions(qr, opts)
+	if len(opts) > 0 {
+		return xq.ApplyOptions(qr, opts)
+	}
+	return qr
 }
 
 // Quote 转义表名或字段名
@@ -42,7 +45,7 @@ func Quote(value string) string {
 }
 
 // InsertBatch 写入多行数据
-func InsertBatch(tableName string, rows []any) error {
+func InsertBatch(tableName string, rows ...any) error {
 	if len(rows) == 0 {
 		return nil
 	}

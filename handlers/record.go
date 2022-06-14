@@ -89,7 +89,7 @@ func SaveMsgData(writeSize int) {
 		select {
 		case <-tick:
 			if len(rows) >= 0 { //每秒也入库
-				logErrorIf(db.InsertBatch(table, rows))
+				logErrorIf(db.InsertBatch(table, rows...))
 				rows = nil
 			}
 		case data := <-msgchan:
@@ -97,7 +97,7 @@ func SaveMsgData(writeSize int) {
 				rows = append(rows, data)
 			}
 			if len(rows) >= writeSize { //超出长度也入库
-				logErrorIf(db.InsertBatch(table, rows))
+				logErrorIf(db.InsertBatch(table, rows...))
 				rows = nil
 			}
 		}

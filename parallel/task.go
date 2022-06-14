@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"asgard/utils"
+	"github.com/azhai/bingwp/utils"
 )
 
 // 间隔重复执行

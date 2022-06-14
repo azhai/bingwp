@@ -11,9 +11,9 @@ import (
 // ------------------------------------------------------------
 type WallDaily struct {
 	Id       int               `json:"id" xorm:"notnull pk autoincr UNSIGNED INT(10)"`
-	Title    string            `json:"title" xorm:"notnull default '' comment('标题') index VARCHAR(255)"`
+	Brief    string            `json:"brief" xorm:"notnull default '' comment('简介') index VARCHAR(255)"`
 	MaxDpi   string            `json:"max_dpi" xorm:"notnull default '' comment('图片最大分辨率') VARCHAR(50)"`
-	BingDate time.Time         `json:"bing_date" xorm:"comment('必应的发布日期') DATE"`
+	BingDate time.Time         `json:"bing_date" xorm:"comment('必应的发布日期') index DATE"`
 	OrigId   int               `json:"orig_id" xorm:"notnull default 0 comment('原始ID') UNSIGNED INT(10)"`
 	OrigUrl  xutils.NullString `json:"orig_url" xorm:"comment('缩略图原始地址') VARCHAR(300)"`
 }
@@ -72,4 +72,17 @@ type WallNote struct {
 
 func (WallNote) TableName() string {
 	return "t_wall_note"
+}
+
+// ------------------------------------------------------------
+// WallTag 墙纸标签
+// ------------------------------------------------------------
+type WallTag struct {
+	Id      int    `json:"id" xorm:"notnull pk autoincr UNSIGNED INT(10)"`
+	DailyId int    `json:"daily_id" xorm:"notnull default 0 comment('墙纸ID') index UNSIGNED INT(10)"`
+	TagName string `json:"tag_name" xorm:"notnull default '' comment('标签') index VARCHAR(100)"`
+}
+
+func (WallTag) TableName() string {
+	return "t_wall_tag"
 }

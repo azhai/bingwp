@@ -53,7 +53,7 @@ func TestRange1(t *testing.T) {
 }
 
 func TestRange2(t *testing.T) {
-	num, step := 8, int64(10) // 8个并发，各自负责10个数
+	num, step := 8, int64(18) // 8个并发，各自负责10个数
 	fmt.Printf("from 1 to %d:\n", int64(num)*step)
 	action := func(id int, start, stop int64) {
 		fmt.Println(id, ":", start, "->", stop-1)
