@@ -15,7 +15,7 @@ import (
 
 func ArrangeImages() (err error) {
 	var rows []*db.WallDaily
-	err = db.Query().Desc("id").Find(&rows)
+	err = db.Query().Desc("id").Limit(92).Find(&rows) //一个季度
 	for _, row := range rows {
 		img := new(db.WallImage)
 		img.Load(xq.WithWhere("id = ?", row.Id*2))
@@ -99,7 +99,7 @@ func (d *FileDict) AddFiles(dir, ext string) error {
 	if err != nil {
 		return err
 	}
-	for fullName, _ := range files {
+	for fullName := range files {
 		baseName := filepath.Base(fullName)
 		if idx := strings.LastIndex(baseName, "_"); idx > 0 {
 			baseName = baseName[:idx]

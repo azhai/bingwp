@@ -28,7 +28,7 @@ func main() {
 
 		coord := geohash.NewCoordinate(0)
 		var rows []*db.WallLocation
-		db.Query().Where("latitude <> 0").Find(&rows)
+		db.Query().Where("geohash = '' AND latitude <> 0").Find(&rows)
 		for _, row := range rows {
 			hash := coord.Encode(row.Latitude, row.Longitude)
 			row.Save(map[string]any{"geohash": hash})
