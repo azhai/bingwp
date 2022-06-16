@@ -7,7 +7,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -24,14 +23,15 @@ import (
 )
 
 const (
-	UserAgent      = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Edg/90.0.818.66"
-	SiteHomeUrl    = "https://bing.wilii.cn"
-	SiteListUrl    = "https://bing.wilii.cn/ymd.asp?ismobile=0"
-	SiteNoteUrl    = "https://api.wilii.cn/bing/binglist.ashx?DictType=Detail"
-	IdLinkPrefix   = "photo.html?id="
-	CurrentPathDir = "images/"
-	dateFirst      = "2009-07-13"
-	dateZero       = "2008-12-31"
+	UserAgent    = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Edg/90.0.818.66"
+	SiteListUrl  = "https://bing.wilii.cn/ymd.asp?ismobile=0"
+	SiteNoteUrl  = "https://api.wilii.cn/bing/binglist.ashx?DictType=Detail"
+	SiteThumbUrl = "https://bing.wilii.cn/OneDrive/bingimages"
+	BingThumbUrl = "https://s.cn.bing.net/th?id=OHR."
+	IdLinkPrefix = "photo.html?id="
+	ImageDataDir = "/data/bingwp/"
+	dateFirst    = "2009-07-13"
+	dateZero     = "2008-12-31"
 )
 
 type WallDict struct {
@@ -97,7 +97,14 @@ func FetchList(url string, stopId int) (err error) {
 	for _, card := range cards {
 		wp := &db.WallDaily{MaxDpi: "400x240"}
 		imgSrc := card.Find("img").First().AttrOr("src", "")
-		wp.OrigUrl = xq.NewNullString(imgSrc)
+		sku := filepath.Base(imgSrc)
+		if strings.HasSuffix(sku, ".jpg") {
+			sku = sku[:len(sku)-4]
+		}
+		if strings.HasSuffix(sku, "_400x240") {
+			sku = sku[:len(sku)-8]
+		}
+		wp.BingSku = sku
 		dataDiv := card.Find("div.title").First()
 		wp.Brief = dataDiv.Find("div.name").First().Text()
 		date := dataDiv.Find("div.date").First().Text()
@@ -118,23 +125,6 @@ func FetchList(url string, stopId int) (err error) {
 		table := (db.WallDaily{}).TableName()
 		err = db.InsertBatch(table, rows...)
 	}
-	return
-}
-
-func FetchImage(row *db.WallDaily) (err error) {
-	url := SiteHomeUrl + row.OrigUrl.String
-	fname := row.BingDate.Format("20060102") + ".jpg"
-	fdir := "data/thumbs/" + row.BingDate.Format("200601")
-	if err = os.MkdirAll(fdir, 0o755); err == nil {
-		err = utils.Download(url, fname, fdir, 1)
-	}
-	if err != nil {
-		return
-	}
-	thumb := &db.WallImage{DailyId: row.Id, Id: row.Id*2 - 1}
-	image := &db.WallImage{DailyId: row.Id, Id: row.Id * 2}
-	table := (db.WallImage{}).TableName()
-	err = db.InsertBatch(table, thumb, image)
 	return
 }
 
@@ -211,7 +201,7 @@ func FetchNotes(row *db.WallDaily) (err error) {
 
 func GetMonthDirAndUrl(date string) (saveDir, listUrl string) {
 	year, month := date[:4], date[5:7]
-	saveDir = filepath.Join(CurrentPathDir, year+month)
+	saveDir = filepath.Join(ImageDataDir, year+month)
 	month = strings.TrimLeft(month, "0")
 	listUrl = fmt.Sprintf("%s&y=%s&m=%s", SiteListUrl, year, month)
 	return
