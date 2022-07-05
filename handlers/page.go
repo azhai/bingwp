@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/azhai/bingwp/cmd"
-
 	db "github.com/azhai/bingwp/models/default"
 
 	"gitee.com/azhai/fiber-u8l/v2"
