@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"fmt"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -19,35 +18,30 @@ import (
 
 const (
 	UserAgent    = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Edg/90.0.818.66"
-	ListUrl      = "https://api.wilii.cn/api/bing?page=%d&pageSize=16"
+	ListUrl      = "https://cn.bing.com/HPImageArchive.aspx?&format=js&idx=0&n=8&mkt=zh-CN"
 	DetailUrl    = "https://api.wilii.cn/api/Bing/%d"
 	SiteThumbUrl = "https://bing.wilii.cn/OneDrive/bingimages"
 	BingThumbUrl = "https://s.cn.bing.net/th?id=OHR."
 	ImageDataDir = "/data/bingwp/"
-	dateFirst    = "2009-07-13"
-	dateZero     = "2008-12-31"
+	dateFirst    = "20090713"
+	dateZero     = "20081231"
 )
 
 type ItemDict struct {
-	Id       int    `json:"id"`
-	Date     string `json:"date"`
-	Headline string `json:"headline"`
-	Title    string `json:"title"`
-	FilePath string `json:"filepath"`
-}
-
-type ListItem struct {
-	Data []ItemDict `json:"data"`
+	Date     string `json:"enddate"`
+	Title    string `json:"copyright"`
+	FilePath string `json:"urlbase"`
 }
 
 type ListResult struct {
-	Status   int      `json:"status"`
-	Success  bool     `json:"success"`
-	Response ListItem `json:"response"`
+	Images []ItemDict `json:"images"`
 }
 
 type DetailDict struct {
-	ItemDict      `json:"extend,"`
+	Date          string           `json:"date"`
+	FilePath      string           `json:"filepath"`
+	Title         string           `json:"title"`
+	Headline      string           `json:"headline"`
 	TitleEn       string           `json:"titleEn"`
 	HeadlineEn    string           `json:"headlineEn"`
 	Description   string           `json:"description"`
@@ -67,19 +61,18 @@ type DetailResult struct {
 }
 
 func FetchRecent() (err error) {
-	stopId, ok := 0, false
-	row := new(db.WallDaily)
+	var stopDate time.Time
+	row, ok := new(db.WallDaily), false
 	ok, err = row.Load(xq.WithOrderBy("bing_date", true))
 	if ok && err == nil {
-		stopId = row.OrigId
+		stopDate = row.BingDate
 	}
-	err = ReadList(stopId, 1)
+	err = ReadList(stopDate.Format("20060102"))
 	return
 }
 
-func ReadList(stopId, pageNo int) (err error) {
-	url := fmt.Sprintf(ListUrl, pageNo)
-	_, body, errs := CreateSpider().Get(url).End()
+func ReadList(stopYmd string) (err error) {
+	_, body, errs := CreateSpider().Get(ListUrl).End()
 	if len(errs) > 0 {
 		err = errs[0]
 		return
@@ -90,29 +83,27 @@ func ReadList(stopId, pageNo int) (err error) {
 		return
 	}
 	zeroUnix := MustParseDate(dateZero).Unix()
-	items, rows := data.Response.Data, make([]any, 0)
+	items, rows := data.Images, make([]any, 0)
 	pp.Println(items)
 	var dims string
 	for _, card := range items {
 		wp := &db.WallDaily{MaxDpi: "400x240"}
-		sku := filepath.Base(card.FilePath)
-		if strings.HasSuffix(sku, ".jpg") {
-			sku = sku[:len(sku)-4]
-		}
-		if strings.HasSuffix(sku, "_1920x1080") {
-			sku = sku[:len(sku)-10]
-		} else if strings.HasSuffix(sku, "_400x240") {
-			sku = sku[:len(sku)-8]
-		}
-		wp.BingSku = sku
-		wp.Brief = card.Title
 		wp.BingDate = MustParseDate(card.Date)
-		wp.OrigId = card.Id
-		if wp.OrigId <= stopId {
+		if wp.BingDate.Format("20060102") <= stopYmd {
 			break
 		}
+		wp.BingSku = card.FilePath
+		prelen := len("/th?id=OHR.")
+		if strings.HasPrefix(wp.BingSku, "/th?id=OHR.") {
+			wp.BingSku = strings.TrimSpace(wp.BingSku[prelen:])
+		}
+		wp.Brief = card.Title
+		idx := strings.LastIndex(wp.Brief, "(")
+		if idx > 0 && strings.HasSuffix(wp.Brief, ")") {
+			wp.Brief = wp.Brief[:idx]
+		}
 		wp.Id = int((wp.BingDate.Unix() - zeroUnix) / 86400)
-		err = ReadDetail(wp)
+		// err = ReadDetail(wp)
 		dims, err = FetchImage(wp)
 		if dims != "" {
 			wp.MaxDpi = dims
@@ -204,7 +195,7 @@ func ReadDetail(row *db.WallDaily) (err error) {
 }
 
 func MustParseDate(date string) time.Time {
-	obj, err := time.Parse("2006-01-02", date)
+	obj, err := time.Parse("20060102", date)
 	if err != nil {
 		panic(err)
 	}

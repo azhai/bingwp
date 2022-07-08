@@ -18,14 +18,13 @@ func FetchImage(row *db.WallDaily) (dims string, err error) {
 	tName := row.BingDate.Format("20060102") + "t.jpg"
 	hdName := row.BingDate.Format("20060102") + "hd.jpg"
 	saveDir := "/data/bingwp/" + row.BingDate.Format("200601")
-	date := row.BingDate.Format("2006/01/02")
-	url := fmt.Sprintf("%s/%s/%s_uhd.jpg", SiteThumbUrl, date, row.BingSku)
+	url := fmt.Sprintf("%s%s_UHD.jpg", BingThumbUrl, row.BingSku)
 	if err = os.MkdirAll(saveDir, 0o755); err == nil {
 		fname := filepath.Join(saveDir, hdName)
 		if size, _ := xutils.FileSize(fname); size <= 0 {
 			err = utils.Download(url, hdName, saveDir, 0)
 		}
-		url = strings.Replace(url, "_uhd", "_400x240", 1)
+		url = strings.Replace(url, "_UHD", "_400x240", 1)
 		fname = filepath.Join(saveDir, tName)
 		if size, _ := xutils.FileSize(fname); size <= 0 {
 			err = utils.Download(url, tName, saveDir, 1)
