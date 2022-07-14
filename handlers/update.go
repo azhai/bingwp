@@ -117,6 +117,21 @@ func ReadList(stopYmd string) (err error) {
 	return
 }
 
+func FetchDetails() (err error) {
+	note, maxId := new(db.WallNote), 0
+	_, err = note.Load(xq.WithOrderBy("daily_id", true))
+	if note.Id > 0 {
+		maxId = note.DailyId
+	}
+	where := xq.WithWhere("id > ?", maxId)
+	var rows []*db.WallDaily
+	err = db.Query(where).Desc("id").Find(&rows)
+	for _, wp := range rows {
+		err = ReadDetail(wp)
+	}
+	return
+}
+
 func ReadDetail(row *db.WallDaily) (err error) {
 	url := fmt.Sprintf(DetailUrl, row.OrigId)
 	_, body, errs := CreateSpider().Get(url).End()

@@ -22,6 +22,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+		err = handlers.FetchDetails()
 		handlers.RepairImage()
 		handlers.UpdateGeo()
 		return
