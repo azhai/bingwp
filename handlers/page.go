@@ -2,15 +2,15 @@ package handlers
 
 import (
 	"fmt"
+	"strings"
 	"text/template"
 	"time"
 
-	"github.com/azhai/bingwp/cmd"
-	db "github.com/azhai/bingwp/models/default"
-
 	"gitee.com/azhai/fiber-u8l/v2"
+	db "github.com/azhai/bingwp/models/default"
 	"github.com/azhai/xgen/templater"
 	xq "github.com/azhai/xgen/xquery"
+	"github.com/k0kubun/pp"
 )
 
 var (
@@ -18,18 +18,22 @@ var (
 		"Date": func(dt time.Time) string {
 			return dt.Format("2006-01-02")
 		},
-		"ImgPath": func(dt time.Time) string {
-			return dt.Format("200601/20060102")
-		},
+		"ImagePath": ImagePath,
+		"ThumbPath": ThumbPath,
 	})
 )
+
+type WallInfo struct {
+	Thumb, Image string
+	*db.WallDaily
+}
 
 func GetMonthBegin(obj time.Time) time.Time {
 	return obj.AddDate(0, 0, 1-obj.Day())
 }
 
-// HomeHandler 首页
-func HomeHandler(ctx *fiber.Ctx) (err error) {
+// PageHandler 首页
+func PageHandler(ctx *fiber.Ctx) (err error) {
 	var dt time.Time
 	yearMonth := ctx.ParamStr("month")
 	dt, err = time.Parse("200601", yearMonth)
@@ -41,9 +45,12 @@ func HomeHandler(ctx *fiber.Ctx) (err error) {
 	where := xq.WithWhere("bing_date >= ? AND bing_date < ?",
 		monthBegin.Format("2006-01-02"), nextBegin.Format("2006-01-02"))
 	var rows []*db.WallDaily
-	err = db.Query(where).Desc("id").Find(&rows)
+	if err = db.Query(where).Asc("id").Find(&rows); err != nil {
+		pp.Println(err)
+	}
 	month := fmt.Sprintf("%02d", int(dt.Month()))
-	data := fiber.Map{"Rows": rows, "Year": dt.Year(), "Month": month}
+	infos := GetDailyImages(rows)
+	data := fiber.Map{"Year": dt.Year(), "Month": month, "Rows": infos}
 	var body []byte
 	if body, err = tpl.Render("home", data); err == nil {
 		ctx.SetType("html")
@@ -52,17 +59,41 @@ func HomeHandler(ctx *fiber.Ctx) (err error) {
 	return
 }
 
-// DataHandler 数据
-func DataHandler(ctx *fiber.Ctx) (err error) {
-	data := make(fiber.Map)
-	err = ctx.Reply(data)
-	return
-}
-
-// logErrorIf 记录错误到日志
-func logErrorIf(err error) {
-	logger := cmd.GetDefaultLogger()
-	if logger != nil && err != nil {
-		logger.Error(err)
+func GetDailyImages(rows []*db.WallDaily) []*WallInfo {
+	size := len(rows)
+	ids, infos := make([]any, size), make([]*WallInfo, size)
+	for i, row := range rows {
+		ids[i] = row.Id
+		infos[i] = &WallInfo{WallDaily: row}
 	}
+	where := xq.WithRange("daily_id", ids...)
+	var imgs []*db.WallImage
+	if err := db.Query(where).Find(&imgs); err != nil {
+		return infos
+	}
+	thumbs, images := make(map[string]string), make(map[string]string)
+	for _, img := range imgs {
+		pos := len(img.FileName) - len(".jpg")
+		dt, ver := img.FileName[pos-8:pos], ""
+		if len(img.ImgMd5) > 24 {
+			ver = img.ImgMd5[24:]
+		}
+		url := fmt.Sprintf("%s?v=%s", img.FileName, ver)
+		if strings.HasPrefix(img.FileName, "thumb") {
+			thumbs[dt] = url
+		} else {
+			images[dt] = url
+		}
+	}
+	for i, info := range infos {
+		dt := info.BingDate.Format("20060102")
+		if url, ok := thumbs[dt]; ok {
+			info.Thumb = url
+		}
+		if url, ok := images[dt]; ok {
+			info.Image = url
+		}
+		infos[i] = info
+	}
+	return infos
 }

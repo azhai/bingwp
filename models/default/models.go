@@ -11,10 +11,10 @@ import (
 // ------------------------------------------------------------
 type WallDaily struct {
 	Id       int       `json:"id" xorm:"notnull pk autoincr UNSIGNED INT(10)"`
+	OrigId   int       `json:"orig_id" xorm:"notnull default 0 comment('bing.wilii.cn原始ID') UNSIGNED INT(10)"`
 	BingDate time.Time `json:"bing_date" xorm:"comment('必应的发布日期') index DATE"`
 	BingSku  string    `json:"bing_sku" xorm:"notnull default '' comment('必应图片编号') index VARCHAR(100)"`
-	OrigId   int       `json:"orig_id" xorm:"notnull default 0 comment('bing.wilii.cn原始ID') UNSIGNED INT(10)"`
-	Brief    string    `json:"brief" xorm:"notnull default '' comment('简介') index VARCHAR(255)"`
+	Title    string    `json:"brief" xorm:"notnull default '' comment('简介') index VARCHAR(255)"`
 	MaxDpi   string    `json:"max_dpi" xorm:"notnull default '' comment('图片最大分辨率') VARCHAR(15)"`
 }
 
@@ -28,8 +28,7 @@ func (WallDaily) TableName() string {
 type WallImage struct {
 	Id        int    `json:"id" xorm:"notnull pk autoincr UNSIGNED INT(10)"`
 	DailyId   int    `json:"daily_id" xorm:"notnull default 0 comment('墙纸ID') index UNSIGNED INT(10)"`
-	SaveDir   string `json:"save_dir" xorm:"notnull default '' comment('保存路径') VARCHAR(100)"`
-	FileName  string `json:"file_name" xorm:"notnull default '' comment('原文件名') VARCHAR(50)"`
+	FileName  string `json:"file_name" xorm:"notnull default '' comment('文件路径') VARCHAR(50)"`
 	ImgMd5    string `json:"img_md5" xorm:"notnull default '' comment('图片MD5哈希') index CHAR(32)"`
 	ImgSize   int    `json:"img_size" xorm:"notnull default 0 comment('图片大小（单位：字节）') index UNSIGNED INT(10)"`
 	ImgOffset int    `json:"img_offset" xorm:"notnull default 0 comment('图片在文件中偏移') UNSIGNED INT(10)"`
@@ -72,17 +71,4 @@ type WallNote struct {
 
 func (WallNote) TableName() string {
 	return "t_wall_note"
-}
-
-// ------------------------------------------------------------
-// WallTag 墙纸标签
-// ------------------------------------------------------------
-type WallTag struct {
-	Id      int    `json:"id" xorm:"notnull pk autoincr UNSIGNED INT(10)"`
-	DailyId int    `json:"daily_id" xorm:"notnull default 0 comment('墙纸ID') index UNSIGNED INT(10)"`
-	TagName string `json:"tag_name" xorm:"notnull default '' comment('标签') index VARCHAR(100)"`
-}
-
-func (WallTag) TableName() string {
-	return "t_wall_tag"
 }

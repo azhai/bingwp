@@ -3,16 +3,12 @@ package utils
 import (
 	"strings"
 
-	xutils "github.com/azhai/xgen/utils"
+	"go.uber.org/zap"
 )
-
-func GetLoggerIgnoreError(logger *xutils.Logger, err error) *xutils.Logger {
-	return logger
-}
 
 // CurlLogger 日志
 type CurlLogger struct {
-	*xutils.Logger
+	*zap.SugaredLogger
 }
 
 func (l *CurlLogger) SetPrefix(prefix string) {

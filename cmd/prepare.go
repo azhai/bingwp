@@ -2,10 +2,9 @@ package cmd
 
 import (
 	"flag"
+	"fmt"
 
 	"github.com/azhai/xgen/config"
-	xutils "github.com/azhai/xgen/utils"
-	xq "github.com/azhai/xgen/xquery"
 	"github.com/k0kubun/pp"
 )
 
@@ -13,14 +12,12 @@ var (
 	serverHost string // 运行IP
 	serverPort int    // 运行端口
 	updateData bool   // 更新数据
-	logger     *xutils.Logger
 )
 
 type OptionConfig struct {
-	Host         string `hcl:"host,optional" json:"host,omitempty"`
-	Port         int    `hcl:"port" json:"port"`
-	MaxWriteSize int
-	UpdateData   bool
+	Host       string `hcl:"host,optional" json:"host,omitempty"`
+	Port       int    `hcl:"port" json:"port"`
+	UpdateData bool
 }
 
 func init() {
@@ -33,12 +30,9 @@ func init() {
 func GetOptions() (*OptionConfig, *config.RootConfig) {
 	options := new(OptionConfig)
 	settings, err := config.ReadConfigFile(options)
+	fmt.Printf("err=%#v\n%#v\n\n", err, settings)
 	if err != nil {
-		panic(err)
-	}
-	logger, err = config.GetConfigLogger()
-	if err != nil {
-		panic(err)
+		// panic(err)
 	}
 
 	if serverHost != "" {
@@ -48,13 +42,8 @@ func GetOptions() (*OptionConfig, *config.RootConfig) {
 		options.Port = serverPort
 	}
 	options.UpdateData = updateData
-	options.MaxWriteSize = xq.MaxWriteSize
 	if config.Verbose() {
 		pp.Println(options)
 	}
 	return options, settings
-}
-
-func GetDefaultLogger() *xutils.Logger {
-	return logger
 }

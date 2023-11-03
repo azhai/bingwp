@@ -88,24 +88,3 @@ func (m *WallNote) Save(changes map[string]any) error {
 		}
 	})
 }
-
-// ------------------------------------------------------------
-// the queries of WallTag
-// ------------------------------------------------------------
-
-func (m *WallTag) Load(opts ...xq.QueryOption) (bool, error) {
-	opts = append(opts, xq.WithTable(m))
-	return Query(opts...).Get(m)
-}
-
-func (m *WallTag) Save(changes map[string]any) error {
-	return xq.ExecTx(Engine(), func(tx *xorm.Session) (int64, error) {
-		if len(changes) == 0 {
-			return tx.Table(m).Insert(m)
-		} else if m.Id == 0 {
-			return tx.Table(m).Insert(changes)
-		} else {
-			return tx.Table(m).ID(m.Id).Update(changes)
-		}
-	})
-}

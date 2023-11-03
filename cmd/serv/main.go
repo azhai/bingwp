@@ -4,12 +4,11 @@ import (
 	"fmt"
 	"runtime"
 
+	"gitee.com/azhai/fiber-u8l/v2"
+	"gitee.com/azhai/fiber-u8l/v2/middleware/compress"
 	"github.com/azhai/bingwp/cmd"
 	"github.com/azhai/bingwp/handlers"
 	"github.com/azhai/bingwp/models"
-
-	"gitee.com/azhai/fiber-u8l/v2"
-	"gitee.com/azhai/fiber-u8l/v2/middleware/compress"
 )
 
 func main() {
@@ -22,9 +21,6 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		err = handlers.FetchDetails()
-		handlers.RepairImage()
-		handlers.UpdateGeo()
 		return
 	}
 
@@ -44,9 +40,8 @@ func NewApp(name string) *fiber.App {
 	})
 	app.Use(compress.New())
 	app.Static("/static", "./static")
-	app.Static("/wallpaper", "/data/bingwp")
-	app.Get("/", handlers.HomeHandler)
-	app.Get("/:month", handlers.HomeHandler)
-	app.Post("/data/", handlers.DataHandler)
+	app.Static("/wallpaper", handlers.ImgSaveDir)
+	app.Get("/", handlers.PageHandler)
+	app.Get("/:month", handlers.PageHandler)
 	return app
 }
