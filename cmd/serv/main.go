@@ -17,8 +17,10 @@ func main() {
 	options, _ := cmd.GetOptions()
 	models.Setup()
 	if options.UpdateData {
-		err = handlers.FetchRecent()
-		if err != nil {
+		if err = handlers.FetchRecent(); err != nil {
+			panic(err)
+		}
+		if err = handlers.ReadList(1); err != nil {
 			panic(err)
 		}
 		return

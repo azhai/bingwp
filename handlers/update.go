@@ -8,7 +8,6 @@ import (
 	db "github.com/azhai/bingwp/models/default"
 	xutils "github.com/azhai/xgen/utils"
 	xq "github.com/azhai/xgen/xquery"
-	"github.com/k0kubun/pp"
 	"github.com/parnurzeal/gorequest"
 )
 
@@ -83,7 +82,6 @@ func FetchRecent() (err error) {
 	if ok && err == nil && wp.Id > 0 {
 		stopDate = wp.BingDate
 		_, err = UpdateDailyImages(wp) // 看最后一天的图片是否需要重新下载
-		err = ReadDetail(wp)
 	}
 	err = ReadArchive(stopDate.Format("20060102"))
 	return
@@ -100,10 +98,11 @@ func ReadArchive(stopYmd string) (err error) {
 	if err != nil {
 		return
 	}
-	zeroUnix := MustParseDate(dateZero).Unix()
 	items, rows := data.Images, make([]any, 0)
-	pp.Println(items)
+	// pp.Println(items)
+
 	var dims string
+	zeroUnix := MustParseDate(dateZero).Unix()
 	for _, card := range items {
 		wp := &db.WallDaily{MaxDpi: "400x240"}
 		wp.BingDate = MustParseDate(card.Date)
@@ -117,7 +116,6 @@ func ReadArchive(stopYmd string) (err error) {
 		if dims != "" {
 			wp.MaxDpi = dims
 		}
-		err = ReadDetail(wp)
 		rows = append(rows, wp)
 	}
 	if len(rows) > 0 {
@@ -139,28 +137,41 @@ func ReadList(page int) (err error) {
 	if err != nil {
 		return
 	}
-	zeroUnix := MustParseDate(dateZero).Unix()
-	items, rows := data.Response.Data, make([]any, 0)
-	pp.Println(items)
+	items := data.Response.Data
+	// pp.Println(items)
 
-	var dims string
+	var exData map[string]*db.WallDaily
+	dates := make([]any, len(items))
+	for i, card := range items {
+		dates[i] = card.Date
+	}
+	if exData, err = db.LoadDailyByDates(dates...); err != nil {
+		return
+	}
+
+	var wp *db.WallDaily
 	for _, card := range items {
-		wp := &db.WallDaily{OrigId: card.Id, MaxDpi: "400x240"}
-		date := strings.ReplaceAll(card.Date, "-", "")
-		wp.BingDate = MustParseDate(date)
-		wp.BingSku = GetSkuFromFullUrl(card.FilePath)
-		wp.Title = ParseDailyTitle(card.Title)
-		wp.Id = int((wp.BingDate.Unix() - zeroUnix) / 86400)
-		dims, err = UpdateDailyImages(wp)
-		if dims != "" {
-			wp.MaxDpi = dims
+		ok, dims := false, ""
+		changes := make(map[string]any)
+		if wp, ok = exData[card.Date]; !ok {
+			wp = &db.WallDaily{OrigId: card.Id, MaxDpi: "400x240"}
+			date := strings.ReplaceAll(card.Date, "-", "")
+			wp.BingDate = MustParseDate(date)
+			wp.BingSku = GetSkuFromFullUrl(card.FilePath)
+			wp.Title = ParseDailyTitle(card.Title)
+		} else {
+			changes["orig_id"] = card.Id
 		}
 		err = ReadDetail(wp)
-		rows = append(rows, wp)
-	}
-	if len(rows) > 0 {
-		table := (db.WallDaily{}).TableName()
-		err = db.InsertBatch(table, rows...)
+		if err = wp.Save(changes); err != nil {
+			continue
+		}
+
+		dims, err = UpdateDailyImages(wp)
+		if dims != "" && dims != wp.MaxDpi {
+			changes["max_dpi"] = dims
+			err = wp.Save(changes)
+		}
 	}
 	return
 }
@@ -181,6 +192,9 @@ func FetchDetails() (err error) {
 }
 
 func ReadDetail(row *db.WallDaily) (err error) {
+	if row.OrigId <= 0 {
+		return
+	}
 	url := fmt.Sprintf(DetailUrl, row.OrigId)
 	_, body, errs := CreateSpider().Get(url).End()
 	if len(errs) > 0 {
@@ -192,13 +206,18 @@ func ReadDetail(row *db.WallDaily) (err error) {
 	if err != nil {
 		return
 	}
+	var exData map[string]*db.WallNote
+	if exData, err = db.LoadNoteByDailyId(row.Id); err != nil {
+		return
+	}
+
 	dict, notes := data.Response, make([]any, 0)
-	if dict.Keyword != "" {
+	if _, ok := exData["keyword"]; !ok && dict.Keyword != "" {
 		note := &db.WallNote{DailyId: row.Id, NoteType: "keyword"}
 		note.NoteChinese = xq.NewNullString(dict.Keyword)
 		notes = append(notes, note)
 	}
-	if dict.Headline != "" {
+	if _, ok := exData["headline"]; !ok && dict.Headline != "" {
 		note := &db.WallNote{DailyId: row.Id, NoteType: "headline"}
 		note.NoteChinese = xq.NewNullString(dict.Headline)
 		if dict.HeadlineEn != "" {
@@ -206,7 +225,7 @@ func ReadDetail(row *db.WallDaily) (err error) {
 		}
 		notes = append(notes, note)
 	}
-	if dict.QuickFact != "" {
+	if _, ok := exData["quick_fact"]; !ok && dict.QuickFact != "" {
 		note := &db.WallNote{DailyId: row.Id, NoteType: "quick_fact"}
 		note.NoteChinese = xq.NewNullString(dict.QuickFact)
 		if dict.QuickFactEn != "" {
@@ -214,7 +233,7 @@ func ReadDetail(row *db.WallDaily) (err error) {
 		}
 		notes = append(notes, note)
 	}
-	if dict.Title != "" {
+	if _, ok := exData["title"]; !ok && dict.Title != "" {
 		note := &db.WallNote{DailyId: row.Id, NoteType: "title"}
 		note.NoteChinese = xq.NewNullString(dict.Title)
 		if dict.TitleEn != "" {
@@ -222,7 +241,7 @@ func ReadDetail(row *db.WallDaily) (err error) {
 		}
 		notes = append(notes, note)
 	}
-	if dict.Description != "" {
+	if _, ok := exData["paragraph"]; !ok && dict.Description != "" {
 		note := &db.WallNote{DailyId: row.Id, NoteType: "paragraph"}
 		note.NoteChinese = xq.NewNullString(dict.Description)
 		if dict.DescriptionEn != "" {

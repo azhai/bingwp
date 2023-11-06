@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/azhai/xgen/config"
-	"github.com/k0kubun/pp"
 )
 
 var (
@@ -42,8 +41,5 @@ func GetOptions() (*OptionConfig, *config.RootConfig) {
 		options.Port = serverPort
 	}
 	options.UpdateData = updateData
-	if config.Verbose() {
-		pp.Println(options)
-	}
 	return options, settings
 }
