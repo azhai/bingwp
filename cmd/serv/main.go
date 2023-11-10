@@ -9,19 +9,21 @@ import (
 	"github.com/azhai/bingwp/cmd"
 	"github.com/azhai/bingwp/handlers"
 	"github.com/azhai/bingwp/models"
+	"github.com/azhai/gozzo/logging"
 )
 
 func main() {
 	var err error
 	runtime.GOMAXPROCS(1)
-	options, _ := cmd.GetOptions()
+	options, settings := cmd.GetOptions()
+	logging.SetLoggerDir(settings.App.LogDir)
 	models.Setup()
 	if options.UpdateData {
 		if err = handlers.FetchRecent(); err != nil {
-			panic(err)
+			logging.Error(err)
 		}
 		if err = handlers.ReadList(1); err != nil {
-			panic(err)
+			logging.Error(err)
 		}
 		return
 	}
