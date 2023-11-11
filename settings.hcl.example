@@ -1,6 +1,11 @@
 debug = false
 
-app "bingwp" {
+app {
+    name = "BingWallPaper"
+    image_dir = "/data/bingwp"
+}
+
+log {
     log_level = "info"
     log_file = "rotate://./logs/access.log?cycle=daily&comp=0"
 }

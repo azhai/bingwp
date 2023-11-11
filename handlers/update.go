@@ -244,7 +244,7 @@ func ReadDetail(row *db.WallDaily) (err error) {
 // CreateSpider 创建cURL客户端
 func CreateSpider() *gorequest.SuperAgent {
 	client := gorequest.New().Set("User-Agent", UserAgent)
-	// if logger := cmd.GetDefaultLogger(); logger != nil {
+	// if logger := config.GetDefaultLogger(); logger != nil {
 	// 	curlLogger := &utils.CurlLogger{Logger: logger}
 	// 	client = client.SetDebug(true).SetLogger(curlLogger)
 	// }

@@ -14,12 +14,18 @@ import (
 )
 
 var (
-	ImgSaveDir      = "/Users/jane/Pictures/bingwp"
+	imageSaveDir    = ""
 	DailyIdYear2020 = 4018
 	NoPhotoWidth    = 80
 	NoPhotoSize     = 1192
 	NoPhotoMd5      = "f0f7d2c575a576fcbe5904900906e27a"
 )
+
+// SetImageSaveDir 设置图片保存目录
+func SetImageSaveDir(dir string) {
+	dir, _ = filepath.Abs(dir)
+	imageSaveDir = dir
+}
 
 func ImagePath(dt time.Time) string {
 	date := dt.Format("20060102")
@@ -48,7 +54,7 @@ func UpdateDailyImages(wp *db.WallDaily) (dims string, err error) {
 }
 
 func FetchImages(sku string, force bool, filenames ...string) error {
-	spec, down := "", transfer.NewDownloader(ImgSaveDir, 1)
+	spec, down := "", transfer.NewDownloader(imageSaveDir, 1)
 	for _, imgFile := range filenames {
 		if strings.HasPrefix(imgFile, "thumb") {
 			spec = "_400x240"
@@ -76,7 +82,7 @@ func LoadImageRow(img *db.WallImage) (*db.WallImage, error) {
 }
 
 func UpdateImageInfo(img *db.WallImage) (dims string, err error) {
-	filename := filepath.Join(ImgSaveDir, img.FileName)
+	filename := filepath.Join(imageSaveDir, img.FileName)
 	fh := filesystem.NewFileHandler(filename)
 	changes, size := make(map[string]any), int64(0)
 	if size = fh.Size(); size <= 0 {

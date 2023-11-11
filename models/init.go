@@ -3,7 +3,7 @@ package models
 import (
 	"net/url"
 
-	"github.com/azhai/bingwp/cmd"
+	"github.com/azhai/gozzo/config"
 	"github.com/azhai/xgen/dialect"
 )
 
@@ -13,18 +13,14 @@ var (
 )
 
 func init() {
-	if cmd.IsRunTest() {
-		_, _ = cmd.BackToDir(1) // 从tests退回根目录
+	if config.IsRunTest() {
+		_, _ = config.BackToDir(1) // 从tests退回根目录
 		SetupDb()
 	}
 }
 
 func SetupDb() {
-	settings := cmd.GetTheSettings()
-	if settings == nil {
-		return
-	}
-	for _, c := range settings.Conns {
+	for _, c := range config.GetConnConfigs() {
 		connCfgs[c.Key] = c
 		connKeys.Add(c.Type, c.Key)
 	}
