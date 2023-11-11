@@ -160,33 +160,18 @@ func ReadList(page int) (err error) {
 			wp.BingSku = GetSkuFromFullUrl(card.FilePath)
 			wp.Title = ParseDailyTitle(card.Title)
 		} else {
-			changes["orig_id"] = card.Id
+			wp.OrigId, changes["orig_id"] = card.Id, card.Id
 		}
-		err = ReadDetail(wp)
 		if err = wp.Save(changes); err != nil {
 			continue
 		}
 
+		err = ReadDetail(wp)
 		dims, err = UpdateDailyImages(wp)
 		if dims != "" && dims != wp.MaxDpi {
 			changes["max_dpi"] = dims
 			err = wp.Save(changes)
 		}
-	}
-	return
-}
-
-func FetchDetails() (err error) {
-	note, maxId := new(db.WallNote), 0
-	_, err = note.Load(xq.WithOrderBy("daily_id", true))
-	if note.Id > 0 {
-		maxId = note.DailyId
-	}
-	where := xq.WithWhere("id > ?", maxId)
-	var rows []*db.WallDaily
-	err = db.Query(where).Desc("id").Find(&rows)
-	for _, wp := range rows {
-		err = ReadDetail(wp)
 	}
 	return
 }

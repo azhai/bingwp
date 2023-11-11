@@ -1,7 +1,9 @@
-debug = true
-log_level = "debug"
-log_dir = "./logs"
-log_file = "rotate://./logs/access.log?cycle=daily&comp=0"
+debug = false
+
+app "bingwp" {
+    log_level = "info"
+    log_file = "rotate://./logs/access.log?cycle=daily&comp=0"
+}
 
 conn "mysql" "default" {
     host = "127.0.0.1"

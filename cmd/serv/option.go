@@ -1,0 +1,35 @@
+package main
+
+import (
+	"flag"
+	"fmt"
+
+	"github.com/azhai/bingwp/cmd"
+)
+
+var theOptions *OptionConfig
+
+type OptionConfig struct {
+	Host       string `hcl:"host,optional" json:"host,omitempty"` // 运行IP
+	Port       int    `hcl:"port,optional" json:"port,omitempty"` // 运行端口
+	UpdateData bool   // 更新数据
+}
+
+// GetTheOptions 返回命令行选项
+func GetTheOptions() *OptionConfig {
+	return theOptions
+}
+
+func init() {
+	theOptions = new(OptionConfig)
+	flag.StringVar(&theOptions.Host, "s", "", "运行IP")
+	flag.IntVar(&theOptions.Port, "p", 9870, "运行端口")
+	flag.BoolVar(&theOptions.UpdateData, "u", false, "更新数据")
+	flag.Parse()
+
+	cfgFile, verbose := cmd.SetupEnv()
+	settings, err := cmd.ReadConfigFile(cfgFile, verbose, theOptions)
+	if err != nil {
+		fmt.Printf("err=%#v\n%#v\n\n", err, settings)
+	}
+}

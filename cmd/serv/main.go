@@ -15,9 +15,10 @@ import (
 func main() {
 	var err error
 	runtime.GOMAXPROCS(1)
-	options, settings := cmd.GetOptions()
-	logging.SetLoggerDir(settings.App.LogDir)
-	models.Setup()
+	options := GetTheOptions()
+	cmd.SetupLogs()
+	models.SetupDb()
+
 	if options.UpdateData {
 		if err = handlers.FetchRecent(); err != nil {
 			logging.Error(err)
