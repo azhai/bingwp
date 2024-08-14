@@ -24,8 +24,8 @@ github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 h1:DklsrG3d
 github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2/go.mod h1:WaHUgvxTVq04UNunO+XhnAqY/wQc+bxr74GqbsZ/Jqw=
 github.com/azhai/gozzo v1.4.2 h1:aq/TL2cOSuw669kINDWWV5SotRmfQZdjeySScXBYzZw=
 github.com/azhai/gozzo v1.4.2/go.mod h1:+ROYkiFMnG7AiWpbKjSacABtnl+/ArYCQcELYf4myY8=
-github.com/azhai/xgen v1.8.1 h1:cav52YA8LJYCEfg1fjnm/nNo9x5HUvKZ/Ugur1y0DfQ=
-github.com/azhai/xgen v1.8.1/go.mod h1:XGjIUWvkPIT5pmZ4v6NMo2E91SN1Zd1XbA5M9JHLBL8=
+github.com/azhai/xgen v1.8.2 h1:QEztTPBN5Fky7MLYVdfAHT76eYaZiRdUpr58+sG5nI8=
+github.com/azhai/xgen v1.8.2/go.mod h1:XGjIUWvkPIT5pmZ4v6NMo2E91SN1Zd1XbA5M9JHLBL8=
 github.com/cheggaaa/pb/v3 v3.1.5 h1:QuuUzeM2WsAqG2gMqtzaWithDJv0i+i6UlnwSCI4QLk=
 github.com/cheggaaa/pb/v3 v3.1.5/go.mod h1:CrxkeghYTXi1lQBEI7jSn+3svI3cuc19haAj6jM60XI=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

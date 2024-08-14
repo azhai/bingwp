@@ -9,6 +9,17 @@ import (
 
 var theOptions *OptionConfig
 
+func init() {
+	theOptions = new(OptionConfig)
+	flag.StringVar(&theOptions.Host, "s", "", "运行IP")
+	flag.IntVar(&theOptions.Port, "p", 9870, "运行端口")
+	flag.BoolVar(&theOptions.UpdateData, "u", false, "更新数据")
+	config.PrepareFlags()
+
+	config.ParseConfigFile(theOptions)
+	config.SetupLog()
+}
+
 type OptionConfig struct {
 	Host       string `hcl:"host,optional" json:"host,omitempty"`           // 运行IP
 	Port       int    `hcl:"port,optional" json:"port,omitempty"`           // 运行端口
@@ -24,15 +35,4 @@ func (c *OptionConfig) GetAddr() string {
 func GetAppOptions() (string, *OptionConfig) {
 	cfg := config.GetAppSettings()
 	return cfg.Name, theOptions
-}
-
-func init() {
-	theOptions = new(OptionConfig)
-	flag.StringVar(&theOptions.Host, "s", "", "运行IP")
-	flag.IntVar(&theOptions.Port, "p", 9870, "运行端口")
-	flag.BoolVar(&theOptions.UpdateData, "u", false, "更新数据")
-	flag.Parse()
-
-	config.ParseConfigFile(theOptions)
-	config.SetupLog()
 }

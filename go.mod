@@ -5,7 +5,7 @@ go 1.22
 require (
 	gitee.com/azhai/fiber-u8l/v2 v2.51.0
 	github.com/azhai/gozzo v1.4.2
-	github.com/azhai/xgen v1.8.1
+	github.com/azhai/xgen v1.8.2
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/json-iterator/go v1.1.12
 	github.com/k0kubun/pp v3.0.1+incompatible
@@ -68,8 +68,3 @@ require (
 	golang.org/x/tools v0.24.0 // indirect
 	xorm.io/builder v0.3.13 // indirect
 )
-
-//replace (
-//    github.com/azhai/gozzo => ../gozzo
-//    github.com/azhai/xgen => ../xgen
-//)
