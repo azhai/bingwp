@@ -3,10 +3,11 @@ module github.com/azhai/bingwp
 go 1.22
 
 require (
-	gitee.com/azhai/fiber-u8l/v2 v2.51.0
 	github.com/azhai/gozzo v1.4.2
 	github.com/azhai/xgen v1.8.2
 	github.com/go-sql-driver/mysql v1.8.1
+	github.com/goccy/go-json v0.10.3
+	github.com/gofiber/fiber/v3 v3.0.0-beta.3
 	github.com/json-iterator/go v1.1.12
 	github.com/k0kubun/pp v3.0.1+incompatible
 	github.com/parnurzeal/gorequest v0.3.0
@@ -30,7 +31,7 @@ require (
 	github.com/fatih/color v1.17.0 // indirect
 	github.com/go-playground/form/v4 v4.2.1 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
-	github.com/goccy/go-json v0.10.3 // indirect
+	github.com/gofiber/utils/v2 v2.0.0-beta.4 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect

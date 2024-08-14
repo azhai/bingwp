@@ -6,10 +6,10 @@ import (
 	"text/template"
 	"time"
 
-	"gitee.com/azhai/fiber-u8l/v2"
 	db "github.com/azhai/bingwp/models/default"
 	"github.com/azhai/xgen/templater"
 	xq "github.com/azhai/xgen/xquery"
+	"github.com/gofiber/fiber/v3"
 	"github.com/k0kubun/pp"
 )
 
@@ -33,9 +33,9 @@ func GetMonthBegin(obj time.Time) time.Time {
 }
 
 // PageHandler 首页
-func PageHandler(ctx *fiber.Ctx) (err error) {
+func PageHandler(ctx fiber.Ctx) (err error) {
 	var dt time.Time
-	yearMonth := ctx.ParamStr("month")
+	yearMonth := ctx.Params("month")
 	dt, err = time.Parse("200601", yearMonth)
 	if err != nil || dt.After(time.Now()) {
 		dt = time.Now()
@@ -53,8 +53,7 @@ func PageHandler(ctx *fiber.Ctx) (err error) {
 	data := fiber.Map{"Year": dt.Year(), "Month": month, "Rows": infos}
 	var body []byte
 	if body, err = tpl.Render("home", data); err == nil {
-		ctx.SetType("html")
-		err = ctx.Send(body)
+		err = ctx.Type("html").Send(body)
 	}
 	return
 }

@@ -4,23 +4,25 @@ import (
 	"fmt"
 	"runtime"
 
-	"gitee.com/azhai/fiber-u8l/v2"
-	"gitee.com/azhai/fiber-u8l/v2/middleware/compress"
 	"github.com/azhai/bingwp/cmd"
 	"github.com/azhai/bingwp/handlers"
 	"github.com/azhai/gozzo/logging"
+	"github.com/goccy/go-json"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/compress"
+	"github.com/gofiber/fiber/v3/middleware/static"
 )
 
 // NewApp 创建http服务
 func NewApp(name, imgDir string) *fiber.App {
 	app := fiber.New(fiber.Config{
-		AppName:               name,
-		Prefork:               true,
-		DisableStartupMessage: true,
+		AppName:     name,
+		JSONEncoder: json.Marshal,
+		JSONDecoder: json.Unmarshal,
 	})
 	app.Use(compress.New())
-	app.Static("/static", "./static")
-	app.Static("/wallpaper", imgDir)
+	app.Use("/static", static.New("./static"))
+	app.Get("/wallpaper/*", static.New(imgDir))
 	app.Get("/", handlers.PageHandler)
 	app.Get("/:month", handlers.PageHandler)
 	return app
