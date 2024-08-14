@@ -83,7 +83,7 @@ func LoadImageRow(img *db.WallImage) (*db.WallImage, error) {
 
 func UpdateImageInfo(img *db.WallImage) (dims string, err error) {
 	filename := filepath.Join(imageSaveDir, img.FileName)
-	fh := filesystem.NewFileHandler(filename)
+	fh := filesystem.File(filename)
 	changes, size := make(map[string]any), int64(0)
 	if size = fh.Size(); size <= 0 {
 		err = fh.Error()

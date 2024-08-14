@@ -2,27 +2,21 @@ package db
 
 import (
 	"github.com/azhai/bingwp/models"
-	"github.com/azhai/gozzo/logging/adapters/xormlog"
+
 	"github.com/azhai/xgen/dialect"
 	xq "github.com/azhai/xgen/xquery"
 	_ "github.com/go-sql-driver/mysql"
 	"xorm.io/xorm"
 )
 
-var (
-	engine *xorm.Engine
-)
+var engine *xorm.Engine
 
 // ConnectXorm 连接数据库
 func ConnectXorm(cfg dialect.ConnConfig) *xorm.Engine {
 	if d := cfg.LoadDialect(); d == nil || !d.IsXormDriver() {
 		return nil
 	}
-	eng := cfg.QuickConnect(false, true)
-	if logfile := cfg.LogFile; logfile != "" {
-		eng.SetLogger(xormlog.NewLogger(logfile))
-	}
-	return eng
+	return cfg.QuickConnect(true, true)
 }
 
 // Engine 获取当前数据库连接

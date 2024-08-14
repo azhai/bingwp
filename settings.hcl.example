@@ -2,12 +2,23 @@ debug = false
 
 app {
     name = "BingWallPaper"
+    version = "2.0.3"
+}
+
+media {
     image_dir = "/data/bingwp"
 }
 
 log {
     log_level = "info"
     log_file = "rotate://./logs/access.log?cycle=daily&comp=0"
+}
+
+reverse "golang" {
+    output_dir     = "./models"
+    name_space     = "github.com/azhai/bingwp/models"
+    table_prefix   = "t_"
+    exclude_tables = ["*_bak", "*_test"]
 }
 
 conn "mysql" "default" {
@@ -17,4 +28,3 @@ conn "mysql" "default" {
     password = "pass"
     log_file = "rotate://./logs/sql.log?cycle=daily&comp=0"
 }
-

@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/azhai/bingwp/models"
 	"github.com/azhai/gozzo/config"
 )
 
@@ -34,7 +33,6 @@ func init() {
 	flag.BoolVar(&theOptions.UpdateData, "u", false, "更新数据")
 	flag.Parse()
 
-	config.SetupEnv(theOptions)
+	config.ParseConfigFile(theOptions)
 	config.SetupLog()
-	models.SetupDb()
 }

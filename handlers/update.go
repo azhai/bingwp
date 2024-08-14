@@ -119,7 +119,7 @@ func ReadArchive(stopYmd string) (err error) {
 		rows = append(rows, wp)
 	}
 	if len(rows) > 0 {
-		table := (db.WallDaily{}).TableName()
+		table := new(db.WallDaily).TableName()
 		err = db.InsertBatch(table, rows...)
 	}
 	return
@@ -235,7 +235,7 @@ func ReadDetail(row *db.WallDaily) (err error) {
 		notes = append(notes, note)
 	}
 	if len(notes) > 0 {
-		table := (db.WallNote{}).TableName()
+		table := new(db.WallNote).TableName()
 		err = db.InsertBatch(table, notes...)
 	}
 	return
@@ -248,7 +248,7 @@ func CreateSpider() *gorequest.SuperAgent {
 	// 	curlLogger := &utils.CurlLogger{Logger: logger}
 	// 	client = client.SetDebug(true).SetLogger(curlLogger)
 	// }
-	return client.Clone()
+	return client
 }
 
 // MustParseDate 解析8位数字表示的日期
