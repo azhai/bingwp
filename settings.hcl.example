@@ -1,12 +1,9 @@
 debug = false
+image_dir = "./data"
 
 app {
     name = "BingWallPaper"
     version = "2.0.3"
-}
-
-media {
-    image_dir = "/data/bingwp"
 }
 
 log {

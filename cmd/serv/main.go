@@ -39,7 +39,8 @@ func main() {
 		if err = handlers.FetchRecent(); err != nil {
 			logging.Error(err)
 		}
-		if err = handlers.ReadList(1); err != nil {
+		crawler := handlers.NewCrawler()
+		if _, err = crawler.CrawlList(1); err != nil {
 			logging.Error(err)
 		}
 		return
@@ -47,7 +48,6 @@ func main() {
 
 	addr := options.GetAddr()
 	greeting := fmt.Sprintf("Server is start at %s ...", addr)
-	fmt.Println(greeting)
 	logging.Info(greeting)
 	app := NewApp(appName, options.ImageDir)
 	if err = app.Listen(addr); err != nil {

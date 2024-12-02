@@ -37,16 +37,45 @@ func ThumbPath(dt time.Time) string {
 	return fmt.Sprintf("thumb/%s/%s.jpg", date[:4], date)
 }
 
+func RebuildImageRecords() (err error) {
+	dt := time.Now()
+	stop := MustParseDate(dateFirst)
+	for dt.After(stop) {
+		id := GetOffsetDay(dt)
+		thumbFile, imageFile := ThumbPath(dt), ImagePath(dt)
+		thumb := &db.WallImage{DailyId: id, FileName: thumbFile}
+		thumb.Id = thumb.DailyId*2 - 1
+		if err = thumb.Save(nil); err == nil {
+			_, err = UpdateImageInfo(thumb)
+			if err != nil {
+				fmt.Println(err)
+			}
+		}
+		image := &db.WallImage{DailyId: id, FileName: imageFile}
+		image.Id = image.DailyId * 2
+		if err = image.Save(nil); err == nil {
+			_, err = UpdateImageInfo(image)
+			if err != nil {
+				fmt.Println(err)
+			}
+		}
+		dt = dt.Add(-24 * time.Hour)
+	}
+	return
+}
+
 func UpdateDailyImages(wp *db.WallDaily) (dims string, err error) {
 	thumbFile, imageFile := ThumbPath(wp.BingDate), ImagePath(wp.BingDate)
 	if err = FetchImages(wp.BingSku, false, thumbFile, imageFile); err != nil {
 		return
 	}
 	thumb := &db.WallImage{DailyId: wp.Id, FileName: thumbFile}
+	thumb.Id = thumb.DailyId*2 - 1
 	if thumb, err = LoadImageRow(thumb); err == nil {
 		_, err = UpdateImageInfo(thumb)
 	}
 	image := &db.WallImage{DailyId: wp.Id, FileName: imageFile}
+	image.Id = image.DailyId * 2
 	if image, err = LoadImageRow(image); err == nil {
 		dims, err = UpdateImageInfo(image)
 	}
@@ -84,6 +113,10 @@ func LoadImageRow(img *db.WallImage) (*db.WallImage, error) {
 func UpdateImageInfo(img *db.WallImage) (dims string, err error) {
 	filename := filepath.Join(imageSaveDir, img.FileName)
 	fh := filesystem.File(filename)
+	if !fh.IsExist() {
+		err = fh.Error()
+		return
+	}
 	changes, size := make(map[string]any), int64(0)
 	if size = fh.Size(); size <= 0 {
 		err = fh.Error()
