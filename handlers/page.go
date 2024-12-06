@@ -32,6 +32,17 @@ func GetMonthBegin(obj time.Time) time.Time {
 	return obj.AddDate(0, 0, 1-obj.Day())
 }
 
+func GetYearDoubleList(max, min int) (lefts, rights []int) {
+	if (max - min) % 2 == 0 {
+		max += 1
+	}
+	for i := max; i >= min; i-=2 {
+		rights = append(rights, i)
+		lefts = append(lefts, i - 1)
+	}
+	return
+}
+
 // PageHandler 首页
 func PageHandler(ctx fiber.Ctx) (err error) {
 	var dt time.Time
@@ -48,9 +59,11 @@ func PageHandler(ctx fiber.Ctx) (err error) {
 	if err = db.Query(where).Asc("id").Find(&rows); err != nil {
 		pp.Println(err)
 	}
-	month := fmt.Sprintf("%02d", int(dt.Month()))
 	infos := GetDailyImages(rows)
-	data := fiber.Map{"Year": dt.Year(), "Month": month, "Rows": infos}
+	year, month := dt.Year(), fmt.Sprintf("%02d", int(dt.Month()))
+	oddYears, evenYears := GetYearDoubleList(time.Now().Year(), 2009)
+	data := fiber.Map{"Year": year, "Month": month,
+		"OddYears": oddYears, "EvenYears": evenYears, "Rows": infos}
 	var body []byte
 	if body, err = tpl.Render("home", data); err == nil {
 		err = ctx.Type("html").Send(body)

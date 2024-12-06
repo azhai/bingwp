@@ -2,22 +2,21 @@ module github.com/azhai/bingwp
 
 go 1.23
 
-toolchain go1.23.2
-
 require (
 	github.com/azhai/gozzo v1.4.2
-	github.com/azhai/xgen v0.0.0-00010101000000-000000000000
+	github.com/azhai/xgen v1.8.2
+	github.com/go-sql-driver/mysql v1.8.1
 	github.com/goccy/go-json v0.10.3
 	github.com/gofiber/fiber/v3 v3.0.0-beta.3
 	github.com/json-iterator/go v1.1.12
 	github.com/k0kubun/pp v3.0.1+incompatible
-	github.com/lib/pq v1.10.9
 	github.com/parnurzeal/gorequest v0.3.0
 	go.uber.org/zap v1.27.0
 	xorm.io/xorm v1.3.9
 )
 
 require (
+	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/Code-Hex/pget v0.2.1 // indirect
 	github.com/Code-Hex/updater v0.0.0-20160712085121-c3f278672520 // indirect
 	github.com/Songmu/prompter v0.5.1 // indirect
@@ -59,15 +58,15 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.57.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
-	github.com/zclconf/go-cty v1.15.0 // indirect
+	github.com/zclconf/go-cty v1.15.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/mod v0.22.0 // indirect
-	golang.org/x/net v0.31.0 // indirect
-	golang.org/x/sync v0.9.0 // indirect
-	golang.org/x/sys v0.27.0 // indirect
-	golang.org/x/term v0.26.0 // indirect
-	golang.org/x/text v0.20.0 // indirect
-	golang.org/x/tools v0.27.0 // indirect
+	golang.org/x/net v0.32.0 // indirect
+	golang.org/x/sync v0.10.0 // indirect
+	golang.org/x/sys v0.28.0 // indirect
+	golang.org/x/term v0.27.0 // indirect
+	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/tools v0.28.0 // indirect
 	xorm.io/builder v0.3.13 // indirect
 )
 

@@ -18,5 +18,6 @@ data/image/
 data/thumb/
 vendor/
 
+db_bingwp*.sql
 settings.hcl
 xg
