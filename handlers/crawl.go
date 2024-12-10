@@ -9,8 +9,8 @@ import (
 
 const (
 	UserAgent     = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Edg/90.0.818.66"
-	ArchiveUrl    = "https://cn.bing.com/HPImageArchive.aspx?&format=js&mkt=zh-CN&idx=0&n=8&uhd=1&uhdwidth=3840&uhdheight=2160"
-	ListUrl       = "https://api.wilii.cn/api/bing?page=%d&pageSize=16"
+	ArchiveUrl    = "https://cn.bing.com/HPImageArchive.aspx?&format=js&mkt=zh-CN&idx=%d&n=8&uhd=1&uhdwidth=3840&uhdheight=2160"
+	ListUrl       = "https://api.wilii.cn/api/bing?page=%d&pageSize=%d"
 	DetailUrl     = "https://api.wilii.cn/api/Bing/%d"
 	FullUrlPrefix = "https://bing.wilii.cn/OneDrive/bingimages/"
 	BaseUrlPrefix = "/th?id=OHR."
@@ -18,7 +18,7 @@ const (
 )
 
 type ArchiveDict struct {
-	Date     string `json:"enddate"`
+	Date     string `json:"enddate"` // 格式20060102
 	FilePath string `json:"urlbase"`
 	Title    string `json:"copyright"`
 	Headline string `json:"title"`
@@ -28,8 +28,11 @@ type ArchiveResult struct {
 	Images []ArchiveDict `json:"images"`
 }
 
-func (r *ArchiveResult) ToDailyListData() (data []DailyDict) {
+func (r *ArchiveResult) ToDailyListData(stopYmd string) (data []DailyDict) {
 	for _, item := range r.Images {
+		if item.Date <= stopYmd {
+			break
+		}
 		data = append(data, DailyDict{
 			Date:     item.Date,
 			FilePath: item.FilePath,
@@ -41,7 +44,7 @@ func (r *ArchiveResult) ToDailyListData() (data []DailyDict) {
 }
 
 type DailyDict struct {
-	Date     string `json:"date"`
+	Date     string `json:"date"` // 格式2006-01-02
 	FilePath string `json:"filepath"`
 	Title    string `json:"title"`
 	Headline string `json:"headline"`
@@ -110,26 +113,28 @@ func (c *Crawler) Crawl(url string) (string, error) {
 }
 
 // CrawlArchive 爬取归档页面
-func (c *Crawler) CrawlArchive() (int, error) {
-	body, err := c.Crawl(ArchiveUrl)
+func (c *Crawler) CrawlArchive(offset int, stopYmd string) (int, error) {
+	url := fmt.Sprintf(ArchiveUrl, offset)
+	body, err := c.Crawl(url)
 	if err != nil {
 		return 0, err
 	}
 	data := new(ArchiveResult)
 	_, c.err = xutils.UnmarshalJSON([]byte(body), &data)
-	return InsertDailyRows(data.ToDailyListData())
+	rows := data.ToDailyListData(stopYmd)
+	return InsertNotExistDailyRows(rows, false)
 }
 
 // CrawlList 爬取列表页面
-func (c *Crawler) CrawlList(page int) (int, error) {
-	url := fmt.Sprintf(ListUrl, page)
+func (c *Crawler) CrawlList(page, size int) (int, error) {
+	url := fmt.Sprintf(ListUrl, page, size)
 	body, err := c.Crawl(url)
 	if err != nil {
 		return 0, err
 	}
 	data := new(ListResult)
 	_, c.err = xutils.UnmarshalJSON([]byte(body), &data)
-	return InsertDailyRows(data.Response.Data)
+	return InsertNotExistDailyRows(data.Response.Data, false)
 }
 
 // CrawlDetail 爬取详情页面

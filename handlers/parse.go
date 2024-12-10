@@ -5,6 +5,7 @@ import (
 	"time"
 
 	db "github.com/azhai/bingwp/models/default"
+	xq "github.com/azhai/xgen/xquery"
 )
 
 const (
@@ -75,28 +76,42 @@ func CreateDailyModel(card DailyDict) *db.WallDaily {
 		wp.BingSku = GetSkuFromBaseUrl(card.FilePath)
 	}
 	wp.Title = ParseDailyTitle(card.Title)
+	wp.Headline = strings.TrimSpace(card.Headline)
 	return wp
 }
 
-// InsertDailyRows 写入多行 Daily
-func InsertDailyRows(items []DailyDict) (num int, err error) {
-	var wp *db.WallDaily
-	for _, card := range items {
-		if wp = CreateDailyModel(card); wp == nil {
-			continue
-		}
-		if err = wp.Save(nil); err == nil {
-			num += 1
-		}
-	}
-	return
-}
-
-// InsertBatchDailyRows 写入多行 Daily
-func InsertBatchDailyRows(items []DailyDict) (num int, err error) {
-	var rows []any
+// InsertNotExistDailyRows 写入多行 Daily ，但先要排除掉已存在的行
+func InsertNotExistDailyRows(items []DailyDict, withImages bool) (num int, err error) {
+	var (
+		dailyRows, existRows []*db.WallDaily
+		dates, rows []any
+	)
+	dict := make(map[string]int)
 	for _, card := range items {
 		if wp := CreateDailyModel(card); wp != nil {
+			bingDate := wp.BingDate.Format("2006-01-02")
+			dates = append(dates, bingDate)
+			dict[bingDate] = 0
+			dailyRows = append(dailyRows, wp)
+		}
+	}
+	where := xq.WithRange("bing_date", dates...)
+	err = db.Query(where).Asc("bing_date").Find(&existRows)
+	if err == nil {
+		for _, wp := range existRows {
+			bingDate := wp.BingDate.Format("2006-01-02")
+			dict[bingDate] = wp.Id
+		}
+	}
+	var dims string
+	for _, wp := range dailyRows {
+		bingDate := wp.BingDate.Format("2006-01-02")
+		if id, ok := dict[bingDate]; !ok || id == 0 {
+			if withImages {
+				if dims, err = UpdateDailyImages(wp); dims != "" {
+					wp.MaxDpi = dims
+				}
+			}
 			rows = append(rows, wp)
 		}
 	}

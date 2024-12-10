@@ -37,33 +37,6 @@ func ThumbPath(dt time.Time) string {
 	return fmt.Sprintf("thumb/%s/%s.jpg", date[:4], date)
 }
 
-func RebuildImageRecords() (err error) {
-	dt := time.Now()
-	stop := MustParseDate(dateFirst)
-	for dt.After(stop) {
-		id := GetOffsetDay(dt)
-		thumbFile, imageFile := ThumbPath(dt), ImagePath(dt)
-		thumb := &db.WallImage{DailyId: id, FileName: thumbFile}
-		thumb.Id = thumb.DailyId*2 - 1
-		if err = thumb.Save(nil); err == nil {
-			_, err = UpdateImageInfo(thumb)
-			if err != nil {
-				fmt.Println(err)
-			}
-		}
-		image := &db.WallImage{DailyId: id, FileName: imageFile}
-		image.Id = image.DailyId * 2
-		if err = image.Save(nil); err == nil {
-			_, err = UpdateImageInfo(image)
-			if err != nil {
-				fmt.Println(err)
-			}
-		}
-		dt = dt.Add(-24 * time.Hour)
-	}
-	return
-}
-
 func UpdateDailyImages(wp *db.WallDaily) (dims string, err error) {
 	thumbFile, imageFile := ThumbPath(wp.BingDate), ImagePath(wp.BingDate)
 	if err = FetchImages(wp.BingSku, false, thumbFile, imageFile); err != nil {
@@ -145,16 +118,6 @@ func RepairLostImages() (err error) {
 	return
 }
 
-func RepairImages() (err error) {
-	var rows []*db.WallImage
-	where := xq.WithWhere("img_md5 = ''")
-	err = db.Query(where).Desc("id").Find(&rows)
-	for _, row := range rows {
-		err = RepairImage(row, false)
-	}
-	return
-}
-
 func RepairDailyImages(date string) (err error) {
 	wp, ok := new(db.WallDaily), false
 	if ok, err = wp.Load(xq.WithWhere("bing_date = ?", date)); !ok {
@@ -176,6 +139,33 @@ func RepairImage(img *db.WallImage, force bool) (err error) {
 	}
 	if dims != "" && dims != "80x80" && dims != "400x240" {
 		err = wp.Save(map[string]any{"max_dpi": dims})
+	}
+	return
+}
+
+func RebuildImageRecords() (err error) {
+	dt := time.Now()
+	stop := MustParseDate(dateFirst)
+	for dt.After(stop) {
+		id := GetOffsetDay(dt)
+		thumbFile, imageFile := ThumbPath(dt), ImagePath(dt)
+		thumb := &db.WallImage{DailyId: id, FileName: thumbFile}
+		thumb.Id = thumb.DailyId*2 - 1
+		if err = thumb.Save(nil); err == nil {
+			_, err = UpdateImageInfo(thumb)
+			if err != nil {
+				fmt.Println(err)
+			}
+		}
+		image := &db.WallImage{DailyId: id, FileName: imageFile}
+		image.Id = image.DailyId * 2
+		if err = image.Save(nil); err == nil {
+			_, err = UpdateImageInfo(image)
+			if err != nil {
+				fmt.Println(err)
+			}
+		}
+		dt = dt.Add(-24 * time.Hour)
 	}
 	return
 }

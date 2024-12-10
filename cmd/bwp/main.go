@@ -36,13 +36,13 @@ func main() {
 		handlers.SetImageSaveDir(options.ImageDir)
 	}
 	if options.UpdateData {
-		if err = handlers.FetchRecent(); err != nil {
-			logging.Error(err)
-		}
 		crawler := handlers.NewCrawler()
-		if _, err = crawler.CrawlList(1); err != nil {
+		if _, err = crawler.CrawlArchive(0, ""); err != nil {
 			logging.Error(err)
 		}
+		// if _, err = crawler.CrawlList(1, 100); err != nil {
+		// 	logging.Error(err)
+		// }
 		return
 	}
 
