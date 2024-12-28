@@ -84,7 +84,7 @@ func CreateDailyModel(card DailyDict) *db.WallDaily {
 func InsertNotExistDailyRows(items []DailyDict, withImages bool) (num int, err error) {
 	var (
 		dailyRows, existRows []*db.WallDaily
-		dates, rows []any
+		dates, rows          []any
 	)
 	dict := make(map[string]int)
 	for _, card := range items {

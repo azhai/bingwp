@@ -52,9 +52,11 @@ type DailyDict struct {
 }
 
 type ListData struct {
-	Page     int         `json:"page"`
-	PageSize int         `json:"pageSize"`
-	Data     []DailyDict `json:"data"`
+	Page      int         `json:"page"`
+	PageSize  int         `json:"pageSize"`
+	PageCount int         `json:"pageCount"`
+	DataCount int         `json:"dataCount"`
+	Data      []DailyDict `json:"data"`
 }
 
 type ListResult struct {
@@ -101,10 +103,9 @@ func (c *Crawler) Error() error {
 }
 
 // Crawl 爬去页面内容
-func (c *Crawler) Crawl(url string) (string, error) {
-	_, body, errs := c.client.Get(url).End()
+func (c *Crawler) Crawl(url string) ([]byte, error) {
+	_, body, errs := c.client.Get(url).EndBytes()
 	if len(errs) > 0 {
-		body = ""
 		c.err = errs[0]
 	} else {
 		c.err = nil
@@ -113,28 +114,47 @@ func (c *Crawler) Crawl(url string) (string, error) {
 }
 
 // CrawlArchive 爬取归档页面
-func (c *Crawler) CrawlArchive(offset int, stopYmd string) (int, error) {
+func (c *Crawler) CrawlArchive(offset int, stopYmd string) (*ArchiveResult, error) {
 	url := fmt.Sprintf(ArchiveUrl, offset)
 	body, err := c.Crawl(url)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	data := new(ArchiveResult)
-	_, c.err = xutils.UnmarshalJSON([]byte(body), &data)
-	rows := data.ToDailyListData(stopYmd)
-	return InsertNotExistDailyRows(rows, false)
+	_, c.err = xutils.UnmarshalJSON(body, &data)
+	return data, c.err
 }
 
-// CrawlList 爬取列表页面
-func (c *Crawler) CrawlList(page, size int) (int, error) {
-	url := fmt.Sprintf(ListUrl, page, size)
-	body, err := c.Crawl(url)
+// SavelArchive 保存归档到数据库
+func (c *Crawler) SavelArchive(offset int, stopYmd string) (int, error) {
+	data, err := c.CrawlArchive(offset, stopYmd)
+	rows := data.ToDailyListData(stopYmd)
 	if err != nil {
 		return 0, err
 	}
+	return InsertNotExistDailyRows(rows, true)
+}
+
+// CrawlList 爬取列表页面
+func (c *Crawler) CrawlList(page, size int) (*ListResult, error) {
+	url := fmt.Sprintf(ListUrl, page, size)
+	body, err := c.Crawl(url)
+	if err != nil {
+		return nil, err
+	}
 	data := new(ListResult)
-	_, c.err = xutils.UnmarshalJSON([]byte(body), &data)
-	return InsertNotExistDailyRows(data.Response.Data, false)
+	_, c.err = xutils.UnmarshalJSON(body, &data)
+	return data, c.err
+}
+
+// SaveList 保存列表到数据库
+func (c *Crawler) SaveList(page, size int) (int, error) {
+	data, err := c.CrawlList(page, size)
+	if err != nil || !data.Success {
+		return 0, err
+	}
+	rows := data.Response.Data
+	return InsertNotExistDailyRows(rows, false)
 }
 
 // CrawlDetail 爬取详情页面
@@ -145,6 +165,6 @@ func (c *Crawler) CrawlDetail(origId int) *DetailDict {
 		return nil
 	}
 	data := new(DetailResult)
-	_, c.err = xutils.UnmarshalJSON([]byte(body), &data)
+	_, c.err = xutils.UnmarshalJSON(body, &data)
 	return data.Response
 }

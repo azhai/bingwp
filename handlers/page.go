@@ -33,12 +33,12 @@ func GetMonthBegin(obj time.Time) time.Time {
 }
 
 func GetYearDoubleList(max, min int) (lefts, rights []int) {
-	if (max - min) % 2 == 0 {
+	if (max-min)%2 == 0 {
 		max += 1
 	}
-	for i := max; i >= min; i-=2 {
+	for i := max; i >= min; i -= 2 {
 		rights = append(rights, i)
-		lefts = append(lefts, i - 1)
+		lefts = append(lefts, i-1)
 	}
 	return
 }

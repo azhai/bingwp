@@ -3,10 +3,11 @@ module github.com/azhai/bingwp
 go 1.23
 
 require (
+	github.com/alexflint/go-arg v1.5.1
 	github.com/azhai/gozzo v1.4.2
 	github.com/azhai/xgen v1.8.2
 	github.com/go-sql-driver/mysql v1.8.1
-	github.com/goccy/go-json v0.10.3
+	github.com/goccy/go-json v0.10.4
 	github.com/gofiber/fiber/v3 v3.0.0-beta.3
 	github.com/json-iterator/go v1.1.12
 	github.com/k0kubun/pp v3.0.1+incompatible
@@ -22,12 +23,13 @@ require (
 	github.com/Songmu/prompter v0.5.1 // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect
+	github.com/alexflint/go-scalar v1.2.0 // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/antonholmquist/jason v1.0.1-0.20160829104012-962e09b85496 // indirect
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/cheggaaa/pb/v3 v3.1.5 // indirect
-	github.com/elazarl/goproxy v0.0.0-20241209145312-60626aee8fb5 // indirect
+	github.com/elazarl/goproxy v0.0.0-20241221210044-9faedc2f9e9f // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/go-playground/form/v4 v4.2.1 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
@@ -61,7 +63,7 @@ require (
 	github.com/zclconf/go-cty v1.15.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/mod v0.22.0 // indirect
-	golang.org/x/net v0.32.0 // indirect
+	golang.org/x/net v0.33.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
 	golang.org/x/term v0.27.0 // indirect
