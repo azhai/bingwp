@@ -4,8 +4,8 @@ go 1.23
 
 require (
 	github.com/alexflint/go-arg v1.5.1
-	github.com/azhai/gozzo v1.4.2
-	github.com/azhai/xgen v1.8.2
+	github.com/azhai/gozzo v1.4.4
+	github.com/azhai/xgen v1.8.4
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/goccy/go-json v0.10.4
 	github.com/gofiber/fiber/v3 v3.0.0-beta.3
@@ -29,7 +29,7 @@ require (
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/cheggaaa/pb/v3 v3.1.5 // indirect
-	github.com/elazarl/goproxy v0.0.0-20241221210044-9faedc2f9e9f // indirect
+	github.com/elazarl/goproxy v1.2.3 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/go-playground/form/v4 v4.2.1 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
@@ -72,4 +72,7 @@ require (
 	xorm.io/builder v0.3.13 // indirect
 )
 
-replace github.com/azhai/xgen => ../xgen
+// replace (
+// 	github.com/azhai/gozzo => ../gozzo
+// 	github.com/azhai/xgen => ../xgen
+// )

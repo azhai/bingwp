@@ -6,6 +6,7 @@ import (
 
 	"github.com/alexflint/go-arg"
 	"github.com/azhai/bingwp/handlers"
+	"github.com/azhai/bingwp/models"
 	"github.com/azhai/gozzo/config"
 	"github.com/azhai/gozzo/logging"
 	"github.com/goccy/go-json"
@@ -14,17 +15,19 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/static"
 )
 
+var app *fiber.App
+
 var args struct {
-	Update   *UpdateCmd `arg:"subcommand:up" help:"更新数据"`
-	Config   string     `arg:"-c,--config" default:"settings.hcl" help:"配置文件路径"`
-	Verbose  bool       `arg:"-v,--verbose" help:"输出详细信息"`
-	ImageDir string     `hcl:"image_dir,optional"` // 图片目录
+	Update  *UpdateCmd `arg:"subcommand:up" help:"更新数据"`
+	Config  string     `arg:"-c,--config" default:"settings.hcl" help:"配置文件路径"`
+	Verbose bool       `arg:"-v,--verbose" help:"输出详细信息"`
 	ServerOpts
 }
 
 type ServerOpts struct {
-	Host string `arg:"-s,--host" default:"" help:"运行IP"`     // 运行IP
-	Port int    `arg:"-p,--port" default:"9870" help:"运行端口"` // 运行端口
+	Host     string `arg:"-s,--host" default:"" help:"运行IP"`              // 运行IP
+	Port     int    `arg:"-p,--port" default:"9870" help:"运行端口"`          // 运行端口
+	ImageDir string `arg:"-d,--dir" help:"图片目录" hcl:"image_dir,optional"` // 图片目录
 }
 
 func (t ServerOpts) GetServerAddr() string {
@@ -60,17 +63,27 @@ func NewApp(name, imgDir string) *fiber.App {
 
 func init() {
 	arg.MustParse(&args)
-	config.ReadConfigFile(args.Config, args.Verbose, &args)
-	config.SetupLog()
+	root, err := config.ReadConfigFile(args.Config, nil)
+	if err != nil {
+		panic(err)
+	}
+	if args.ImageDir == "" {
+		root.ParseAppRemain(&args.ServerOpts)
+	}
+	handlers.SetImageSaveDir(args.ImageDir)
+	models.PrepareConns(root)
+	config.SetupLog(root.Log)
+	app = NewApp(root.App.Name, args.ImageDir)
+	if args.Verbose {
+		fmt.Println("Config file is", args.Config)
+		fmt.Println("Image dir is", args.ImageDir)
+	}
 }
 
 func main() {
 	var err error
 	runtime.GOMAXPROCS(1)
 
-	if args.ImageDir != "" {
-		handlers.SetImageSaveDir(args.ImageDir)
-	}
 	if args.Update != nil {
 		args.Update.Run()
 		return
@@ -79,8 +92,6 @@ func main() {
 	addr := args.GetServerAddr()
 	greeting := fmt.Sprintf("Server is start at %s ...", addr)
 	logging.Info(greeting)
-	cfg := config.GetAppSettings()
-	app := NewApp(cfg.Name, args.ImageDir)
 	if err = app.Listen(addr); err != nil {
 		panic(err)
 	}

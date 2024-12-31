@@ -1,9 +1,9 @@
 debug = false
-image_dir = "./data"
 
 app {
     name = "BingWallPaper"
-    version = "2.0.3"
+    version = "2.0.4"
+    image_dir = "./data"
 }
 
 log {

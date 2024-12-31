@@ -6,7 +6,7 @@ import (
 	xutils "github.com/azhai/xgen/utils"
 )
 
-// WallDaily 必应每日墙纸
+// WallDaily
 type WallDaily struct {
 	Id       int       `json:"id" form:"id" xorm:"notnull pk autoincr UNSIGNED INT(10)"`
 	OrigId   int       `json:"orig_id" form:"orig_id" xorm:"notnull default 0 comment('bing.wilii.cn原始ID') UNSIGNED INT(10)"`
@@ -21,7 +21,7 @@ func (*WallDaily) TableName() string {
 	return "t_wall_daily"
 }
 
-// WallImage 墙纸图片
+// WallImage
 type WallImage struct {
 	Id        int    `json:"id" form:"id" xorm:"notnull pk autoincr UNSIGNED INT(10)"`
 	DailyId   int    `json:"daily_id" form:"daily_id" xorm:"notnull default 0 comment('墙纸ID') index UNSIGNED INT(10)"`
@@ -37,7 +37,7 @@ func (*WallImage) TableName() string {
 	return "t_wall_image"
 }
 
-// WallNote 必应小知识
+// WallNote
 type WallNote struct {
 	Id          int               `json:"id" form:"id" xorm:"notnull pk autoincr UNSIGNED INT(10)"`
 	DailyId     int               `json:"daily_id" form:"daily_id" xorm:"notnull default 0 comment('墙纸ID') index UNSIGNED INT(10)"`

@@ -2,7 +2,6 @@ package db
 
 import (
 	"github.com/azhai/bingwp/models"
-
 	"github.com/azhai/xgen/dialect"
 	xq "github.com/azhai/xgen/xquery"
 	_ "github.com/go-sql-driver/mysql"
@@ -24,7 +23,7 @@ func Engine() *xorm.Engine {
 	if engine == nil {
 		cfg := models.GetConnConfig("default")
 		engine = ConnectXorm(cfg)
-		engine.Sync(&WallDaily{}, &WallImage{}, &WallNote{})
+		// engine.Sync()
 	}
 	return engine
 }
