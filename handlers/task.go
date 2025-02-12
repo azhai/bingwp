@@ -5,54 +5,75 @@ import (
 	"os"
 	"time"
 
+	db "github.com/azhai/bingwp/models/default"
 	xutils "github.com/azhai/xgen/utils"
 )
 
 const (
-	SaveFileNameFormat = "./tmp/list-s%d-p%03d.json"
+	SaveDetailFileName = "./tmp/wp-%s.json"
 )
 
 // SaveListPages 保存列表页面
-func SaveListPages(size int) (err error) {
+func SaveListPages(pageCount int, pageSize int) (err error) {
 	var (
-		data *ListResult
-		body []byte
+		result *ListResult
+		body   []byte
 	)
 	i, crawler := 1, NewCrawler()
-	if data, err = crawler.CrawlList(i, size); err != nil {
+	if result, err = crawler.CrawlList(i, pageSize); err != nil {
 		return
 	}
-	maxPage := data.Response.PageCount
-	for i = 1; i <= maxPage; i++ {
-		url := fmt.Sprintf(ListUrl, i, size)
+	if pageCount < 0 {
+		pageCount = result.Response.PageCount
+	}
+	for i = 1; i <= pageCount; i++ {
+		url := fmt.Sprintf(ListUrl, i, pageSize)
 		if body, err = crawler.Crawl(url); err != nil {
 			continue
 		}
-		path := fmt.Sprintf(SaveFileNameFormat, size, i)
-		_ = os.WriteFile(path, body, 0644)
+
+		if _, err = xutils.UnmarshalJSON(body, &result); err != nil {
+			fmt.Println(err)
+			continue
+		}
+		for _, card := range result.Response.Data {
+			if wp := CreateDailyModel(card); wp != nil {
+				changes := map[string]any{
+					"guid":     wp.Guid,
+					"headline": wp.Headline,
+					"color":    wp.Color,
+				}
+				if err = wp.Save(changes); err == nil {
+					err = UpdateDailyDetail(wp)
+				}
+			}
+		}
+
 		time.Sleep(10 * time.Millisecond)
 	}
 	return
 }
 
-func UpdateDailyHeadline(size, maxPage int) (err error) {
+func UpdateDailyDetail(wp *db.WallDaily) (err error) {
 	var (
-		data *ListResult
-		body []byte
+		result  *DetailResult
+		data    *DetailDict
+		body    []byte
+		crawler = NewCrawler()
 	)
-	for i := 1; i <= maxPage; i++ {
-		path := fmt.Sprintf(SaveFileNameFormat, size, i)
-		if body, err = os.ReadFile(path); err != nil || body == nil {
-			continue
-		}
-		if _, err = xutils.UnmarshalJSON(body, &data); err != nil {
-			continue
-		}
-		for _, card := range data.Response.Data {
-			if wp := CreateDailyModel(card); wp != nil {
-				err = wp.Save(map[string]any{"headline": wp.Headline})
-			}
-		}
+	if wp.Guid == "" {
+		return
 	}
+	path := fmt.Sprintf(SaveDetailFileName, wp.Guid)
+	if body, err = os.ReadFile(path); err != nil || body == nil {
+		data = crawler.CrawlDetail(wp.Guid)
+		time.Sleep(5 * time.Millisecond)
+	} else if _, err = xutils.UnmarshalJSON(body, &result); err != nil {
+		data = crawler.CrawlDetail(wp.Guid)
+		time.Sleep(5 * time.Millisecond)
+	} else {
+		data = result.Response
+	}
+	err = WriteDetail(wp, data)
 	return
 }

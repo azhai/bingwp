@@ -9,11 +9,12 @@ import (
 // WallDaily
 type WallDaily struct {
 	Id       int       `json:"id" form:"id" xorm:"notnull pk autoincr UNSIGNED INT(10)"`
-	OrigId   int       `json:"orig_id" form:"orig_id" xorm:"notnull default 0 comment('bing.wilii.cn原始ID') UNSIGNED INT(10)"`
+	Guid     string    `json:"guid" form:"guid" xorm:"notnull default '' comment('bing.wilii.cn原始ID') CHAR(10)"`
 	BingDate time.Time `json:"bing_date" form:"bing_date" xorm:"comment('必应的发布日期') unique DATE"`
 	BingSku  string    `json:"bing_sku" form:"bing_sku" xorm:"notnull default '' comment('必应图片编号') index VARCHAR(100)"`
 	Title    string    `json:"title" form:"title" xorm:"notnull default '' comment('标题') index VARCHAR(255)"`
 	Headline string    `json:"headline" form:"headline" xorm:"notnull default '' comment('简介') VARCHAR(255)"`
+	Color    string    `json:"color" form:"color" xorm:"notnull default '' comment('主色调') VARCHAR(15)"`
 	MaxDpi   string    `json:"max_dpi" form:"max_dpi" xorm:"notnull default '' comment('图片最大分辨率') VARCHAR(15)"`
 }
 

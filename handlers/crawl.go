@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"os"
 
 	xutils "github.com/azhai/xgen/utils"
 	"github.com/parnurzeal/gorequest"
@@ -11,7 +12,7 @@ const (
 	UserAgent     = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Edg/90.0.818.66"
 	ArchiveUrl    = "https://cn.bing.com/HPImageArchive.aspx?&format=js&mkt=zh-CN&idx=%d&n=8&uhd=1&uhdwidth=3840&uhdheight=2160"
 	ListUrl       = "https://api.wilii.cn/api/bing?page=%d&pageSize=%d"
-	DetailUrl     = "https://api.wilii.cn/api/Bing/%d"
+	DetailUrl     = "https://api.wilii.cn/api/Bing/%s"
 	FullUrlPrefix = "https://bing.wilii.cn/OneDrive/bingimages/"
 	BaseUrlPrefix = "/th?id=OHR."
 	BingThumbUrl  = "https://s.cn.bing.net/th?id=OHR."
@@ -44,11 +45,12 @@ func (r *ArchiveResult) ToDailyListData(stopYmd string) (data []DailyDict) {
 }
 
 type DailyDict struct {
+	Guid     string `json:"guid,omitempty"`
 	Date     string `json:"date"` // 格式2006-01-02
 	FilePath string `json:"filepath"`
 	Title    string `json:"title"`
 	Headline string `json:"headline"`
-	OrigId   int    `json:"id,omitempty"`
+	Color    string `json:"color,omitempty"`
 }
 
 type ListData struct {
@@ -74,6 +76,8 @@ type DetailDict struct {
 	QuickFact     string `json:"quickFact"`
 	QuickFactEn   string `json:"quickFactEn"`
 	Keyword       string `json:"keyword"`
+	Caption       string `json:"caption"`
+	CaptionEn     string `json:"captionEn"`
 	Longitude     string `json:"longitude"`
 	Latitude      string `json:"latitude"`
 }
@@ -158,12 +162,14 @@ func (c *Crawler) SaveList(page, size int) (int, error) {
 }
 
 // CrawlDetail 爬取详情页面
-func (c *Crawler) CrawlDetail(origId int) *DetailDict {
-	url := fmt.Sprintf(DetailUrl, origId)
+func (c *Crawler) CrawlDetail(guid string) *DetailDict {
+	url := fmt.Sprintf(DetailUrl, guid)
 	body, err := c.Crawl(url)
 	if err != nil {
 		return nil
 	}
+	path := fmt.Sprintf(SaveDetailFileName, guid)
+	_ = os.WriteFile(path, body, 0644)
 	data := new(DetailResult)
 	_, c.err = xutils.UnmarshalJSON(body, &data)
 	return data.Response

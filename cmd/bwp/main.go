@@ -13,6 +13,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/compress"
 	"github.com/gofiber/fiber/v3/middleware/static"
+	// db "github.com/azhai/bingwp/models/default"
 )
 
 var app *fiber.App
@@ -38,12 +39,30 @@ type UpdateCmd struct {
 }
 
 func (c *UpdateCmd) Run() {
-	crawler := handlers.NewCrawler()
-	if _, err := crawler.SavelArchive(0, ""); err != nil {
+	// 从微软Bing下载最新的图像，以及标题
+	var err error
+	num, crawler := 0, handlers.NewCrawler()
+	if num, err = crawler.SavelArchive(0, ""); err != nil {
 		logging.Error(err)
 	}
-	// handlers.SaveListPages(100)
-	// handlers.UpdateDailyHeadline(100, 57)
+
+	// 从wilii.cn读取guid等信息
+	if num > 0 {
+		handlers.SaveListPages(1, 8)
+	}
+
+	// 从详情中读取正文等内容
+	// var rows []*db.WallDaily
+	// qr := db.Query().Asc("id")
+	// if err = qr.Find(&rows); err != nil {
+	// 	fmt.Println(err)
+	// }
+	// for _, row := range rows {
+	// 	err = handlers.UpdateDailyDetail(row)
+	// 	if err != nil {
+	// 		fmt.Println(err)
+	// 	}
+	// }
 }
 
 // NewApp 创建http服务

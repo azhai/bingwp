@@ -70,6 +70,7 @@ func CreateDailyModel(card DailyDict) *db.WallDaily {
 	wp := &db.WallDaily{MaxDpi: "400x240"}
 	wp.BingDate = MustParseDate(card.Date)
 	wp.Id = GetOffsetDay(wp.BingDate)
+	wp.Guid, wp.Color = card.Guid, card.Color
 	if strings.HasPrefix(card.FilePath, FullUrlPrefix) {
 		wp.BingSku = GetSkuFromFullUrl(card.FilePath)
 	} else {
