@@ -48,7 +48,7 @@ func (c *UpdateCmd) Run() {
 
 	// 从wilii.cn读取guid等信息
 	if num > 0 {
-		handlers.SaveListPages(1, 8)
+		handlers.SaveListPages(1, num)
 	}
 
 	// 从详情中读取正文等内容

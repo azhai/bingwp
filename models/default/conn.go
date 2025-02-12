@@ -23,7 +23,7 @@ func Engine() *xorm.Engine {
 	if engine == nil {
 		cfg := models.GetConnConfig("default")
 		engine = ConnectXorm(cfg)
-		// engine.Sync()
+		// engine.Sync(&WallDaily{}, &WallImage{}, &WallNote{})
 	}
 	return engine
 }
