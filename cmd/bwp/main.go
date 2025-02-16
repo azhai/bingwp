@@ -13,7 +13,6 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/compress"
 	"github.com/gofiber/fiber/v3/middleware/static"
-	// db "github.com/azhai/bingwp/models/default"
 )
 
 var app *fiber.App
@@ -47,22 +46,13 @@ func (c *UpdateCmd) Run() {
 	}
 
 	// 从wilii.cn读取guid等信息
-	if num > 0 {
-		handlers.SaveListPages(1, num)
+	if num < 2 {
+		num = 2
 	}
+	handlers.SaveListPages(1, num, false)
 
 	// 从详情中读取正文等内容
-	// var rows []*db.WallDaily
-	// qr := db.Query().Asc("id")
-	// if err = qr.Find(&rows); err != nil {
-	// 	fmt.Println(err)
-	// }
-	// for _, row := range rows {
-	// 	err = handlers.UpdateDailyDetail(row)
-	// 	if err != nil {
-	// 		fmt.Println(err)
-	// 	}
-	// }
+	handlers.SaveSomeDetails(5, 1)
 }
 
 // NewApp 创建http服务

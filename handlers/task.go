@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	db "github.com/azhai/bingwp/models/default"
@@ -14,7 +15,7 @@ const (
 )
 
 // SaveListPages 保存列表页面
-func SaveListPages(pageCount int, pageSize int) (err error) {
+func SaveListPages(pageCount int, pageSize int, getDetail bool) (err error) {
 	var (
 		result *ListResult
 		body   []byte
@@ -39,12 +40,13 @@ func SaveListPages(pageCount int, pageSize int) (err error) {
 		for _, card := range result.Response.Data {
 			if wp := CreateDailyModel(card); wp != nil {
 				changes := map[string]any{
-					"guid":     wp.Guid,
-					"headline": wp.Headline,
-					"color":    wp.Color,
+					"guid":     strings.TrimSpace(wp.Guid),
+					"headline": strings.TrimSpace(wp.Headline),
+					"color":    strings.TrimSpace(wp.Color),
 				}
-				if err = wp.Save(changes); err == nil {
-					err = UpdateDailyDetail(wp)
+				err = wp.Save(changes)
+				if err == nil && getDetail {
+					err = UpdateDailyDetail(wp, true)
 				}
 			}
 		}
@@ -54,7 +56,22 @@ func SaveListPages(pageCount int, pageSize int) (err error) {
 	return
 }
 
-func UpdateDailyDetail(wp *db.WallDaily) (err error) {
+func SaveSomeDetails(limit, start int) (err error) {
+	var rows []*db.WallDaily
+	qr := db.Query().Limit(limit, start).Desc("id")
+	if err = qr.Find(&rows); err != nil {
+		fmt.Println(err)
+	}
+	for i := len(rows) - 1; i >= 0; i-- {
+		err = UpdateDailyDetail(rows[i], true)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+	return
+}
+
+func UpdateDailyDetail(wp *db.WallDaily, override bool) (err error) {
 	var (
 		result  *DetailResult
 		data    *DetailDict
@@ -65,7 +82,10 @@ func UpdateDailyDetail(wp *db.WallDaily) (err error) {
 		return
 	}
 	path := fmt.Sprintf(SaveDetailFileName, wp.Guid)
-	if body, err = os.ReadFile(path); err != nil || body == nil {
+	if override {
+		data = crawler.CrawlDetail(wp.Guid)
+		time.Sleep(5 * time.Millisecond)
+	} else if body, err = os.ReadFile(path); err != nil || body == nil {
 		data = crawler.CrawlDetail(wp.Guid)
 		time.Sleep(5 * time.Millisecond)
 	} else if _, err = xutils.UnmarshalJSON(body, &result); err != nil {
