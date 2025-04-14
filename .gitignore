@@ -16,6 +16,7 @@
 bin/
 data/image/
 data/thumb/
+tmp/
 vendor/
 
 db_bingwp*.sql
