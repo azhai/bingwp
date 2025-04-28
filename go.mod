@@ -64,7 +64,7 @@ require (
 	github.com/syndtr/goleveldb v1.0.0 // indirect
 	github.com/tinylib/msgp v1.2.5 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasthttp v1.60.0 // indirect
+	github.com/valyala/fasthttp v1.61.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/zclconf/go-cty v1.16.2 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
