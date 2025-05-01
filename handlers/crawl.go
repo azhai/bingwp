@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	xutils "github.com/azhai/xgen/utils"
+	"github.com/goccy/go-json"
 	"github.com/parnurzeal/gorequest"
 )
 
@@ -125,7 +125,7 @@ func (c *Crawler) CrawlArchive(offset int, stopYmd string) (*ArchiveResult, erro
 		return nil, err
 	}
 	data := new(ArchiveResult)
-	_, c.err = xutils.UnmarshalJSON(body, &data)
+	c.err = json.Unmarshal(body, &data)
 	return data, c.err
 }
 
@@ -147,7 +147,7 @@ func (c *Crawler) CrawlList(page, size int) (*ListResult, error) {
 		return nil, err
 	}
 	data := new(ListResult)
-	_, c.err = xutils.UnmarshalJSON(body, &data)
+	c.err = json.Unmarshal(body, &data)
 	return data, c.err
 }
 
@@ -171,6 +171,6 @@ func (c *Crawler) CrawlDetail(guid string) *DetailDict {
 	path := fmt.Sprintf(SaveDetailFileName, guid)
 	_ = os.WriteFile(path, body, 0644)
 	data := new(DetailResult)
-	_, c.err = xutils.UnmarshalJSON(body, &data)
+	c.err = json.Unmarshal(body, &data)
 	return data.Response
 }

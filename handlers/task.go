@@ -7,7 +7,7 @@ import (
 	"time"
 
 	db "github.com/azhai/bingwp/models/default"
-	xutils "github.com/azhai/xgen/utils"
+	"github.com/goccy/go-json"
 )
 
 const (
@@ -33,7 +33,7 @@ func SaveListPages(pageCount int, pageSize int, getDetail bool) (err error) {
 			continue
 		}
 
-		if _, err = xutils.UnmarshalJSON(body, &result); err != nil {
+		if err = json.Unmarshal(body, &result); err != nil {
 			fmt.Println(err)
 			continue
 		}
@@ -88,7 +88,7 @@ func UpdateDailyDetail(wp *db.WallDaily, override bool) (err error) {
 	} else if body, err = os.ReadFile(path); err != nil || body == nil {
 		data = crawler.CrawlDetail(wp.Guid)
 		time.Sleep(5 * time.Millisecond)
-	} else if _, err = xutils.UnmarshalJSON(body, &result); err != nil {
+	} else if err = json.Unmarshal(body, &result); err != nil {
 		data = crawler.CrawlDetail(wp.Guid)
 		time.Sleep(5 * time.Millisecond)
 	} else {
