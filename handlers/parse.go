@@ -19,8 +19,8 @@ var (
 )
 
 // GetOffsetDay 以2009年元旦为第一天，计算当前是多少天
-func GetOffsetDay(dt time.Time) int {
-	return int((dt.Unix() - zeroUnix) / 86400)
+func GetOffsetDay(dt time.Time) int64 {
+	return (dt.Unix() - zeroUnix) / 86400
 }
 
 // MustParseDate 解析8位数字表示的日期
@@ -87,7 +87,7 @@ func InsertNotExistDailyRows(items []DailyDict, withImages bool) (num int, err e
 		dailyRows, existRows []*db.WallDaily
 		dates, rows          []any
 	)
-	dict := make(map[string]int)
+	dict := make(map[string]int64)
 	for _, card := range items {
 		if wp := CreateDailyModel(card); wp != nil {
 			bingDate := wp.BingDate.Format("2006-01-02")

@@ -20,7 +20,7 @@ func LoadDailyByDates(dates ...any) (map[string]*WallDaily, error) {
 }
 
 // LoadNoteByDailyId 加载对应行的描述
-func LoadNoteByDailyId(dailyId int) (map[string]*WallNote, error) {
+func LoadNoteByDailyId(dailyId int64) (map[string]*WallNote, error) {
 	var rows []*WallNote
 	data := make(map[string]*WallNote)
 	where := xq.WithWhere("daily_id = ?", dailyId)
