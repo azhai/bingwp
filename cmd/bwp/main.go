@@ -2,11 +2,10 @@ package main
 
 import (
 	"fmt"
-	"runtime"
 
 	"github.com/alexflint/go-arg"
 	"github.com/azhai/bingwp/handlers"
-	"github.com/azhai/bingwp/models"
+	"github.com/azhai/bingwp/services/orm"
 	"github.com/azhai/gozzo/config"
 	"github.com/azhai/gozzo/logging"
 	"github.com/goccy/go-json"
@@ -49,10 +48,14 @@ func (c *UpdateCmd) Run() {
 	if num < 2 {
 		num = 2
 	}
-	handlers.SaveListPages(1, num, false)
+	if err = handlers.SaveListPages(1, num, false); err != nil {
+		logging.Error(err)
+	}
 
 	// 从详情中读取正文等内容
-	handlers.SaveSomeDetails(5, 1)
+	if err = handlers.SaveSomeDetails(5, 1); err != nil {
+		logging.Error(err)
+	}
 }
 
 // NewApp 创建http服务
@@ -77,11 +80,15 @@ func init() {
 		panic(err)
 	}
 	if args.ImageDir == "" {
-		root.ParseAppRemain(&args.ServerOpts)
+		_ = root.ParseAppRemain(&args.ServerOpts)
 	}
 	handlers.SetImageSaveDir(args.ImageDir)
-	models.PrepareConns(root)
+
 	config.SetupLog(root.Log)
+	if err = orm.OpenService(); err != nil {
+		panic(err)
+	}
+
 	app = NewApp(root.App.Name, args.ImageDir)
 	if args.Verbose {
 		fmt.Println("Config file is", args.Config)
@@ -91,7 +98,8 @@ func init() {
 
 func main() {
 	var err error
-	runtime.GOMAXPROCS(1)
+	// runtime.GOMAXPROCS(1)
+	defer orm.CloseService()
 
 	if args.Update != nil {
 		args.Update.Run()

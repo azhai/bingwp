@@ -1,6 +1,6 @@
 module github.com/azhai/bingwp
 
-go 1.24
+go 1.24.0
 
 toolchain go1.24.2
 
@@ -8,6 +8,8 @@ require (
 	github.com/alexflint/go-arg v1.5.1
 	github.com/azhai/gozzo v1.4.4
 	github.com/azhai/xgen v1.8.4
+	github.com/go-goe/goe v0.3.0
+	github.com/go-goe/postgres v0.2.0
 	github.com/goccy/go-json v0.10.5
 	github.com/gofiber/fiber/v3 v3.0.0-beta.4
 	github.com/k0kubun/pp v3.0.1+incompatible
@@ -41,6 +43,10 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grsmv/inflect v0.0.0-20140723132642-a28d3de3b3ad // indirect
 	github.com/hashicorp/hcl/v2 v2.23.0 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
+	github.com/jackc/pgx/v5 v5.7.4 // indirect
+	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jessevdk/go-flags v1.6.1 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect

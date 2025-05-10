@@ -15,17 +15,17 @@ func WriteDetail(wp *db.WallDaily, data *DetailDict) (err error) {
 	}
 	var notes []any
 	// if _, ok := dict["longitude"]; !ok && data.Longitude != "" {
-	// 	note := &db.WallNote{DailyId: wp.Id, NoteType: "longitude"}
+	// 	note := &orm.WallNote{DailyId: wp.Id, NoteType: "longitude"}
 	// 	note.NoteChinese = xq.NewNullString(data.Longitude)
 	// 	notes = append(notes, note)
 	// }
 	// if _, ok := dict["latitude"]; !ok && data.Latitude != "" {
-	// 	note := &db.WallNote{DailyId: wp.Id, NoteType: "latitude"}
+	// 	note := &orm.WallNote{DailyId: wp.Id, NoteType: "latitude"}
 	// 	note.NoteChinese = xq.NewNullString(data.Latitude)
 	// 	notes = append(notes, note)
 	// }
 	// if _, ok := dict["keyword"]; !ok && data.Keyword != "" {
-	// 	note := &db.WallNote{DailyId: wp.Id, NoteType: "keyword"}
+	// 	note := &orm.WallNote{DailyId: wp.Id, NoteType: "keyword"}
 	// 	note.NoteChinese = xq.NewNullString(data.Keyword)
 	// 	notes = append(notes, note)
 	// }
@@ -54,7 +54,7 @@ func WriteDetail(wp *db.WallDaily, data *DetailDict) (err error) {
 		notes = append(notes, note)
 	}
 	// if _, ok := dict["quick_fact"]; !ok && data.QuickFact != "" {
-	// 	note := &db.WallNote{DailyId: wp.Id, NoteType: "quick_fact"}
+	// 	note := &orm.WallNote{DailyId: wp.Id, NoteType: "quick_fact"}
 	// 	note.NoteChinese = xq.NewNullString(data.QuickFact)
 	// 	if data.QuickFactEn != "" {
 	// 		note.NoteEnglish = xq.NewNullString(data.QuickFactEn)
@@ -62,7 +62,7 @@ func WriteDetail(wp *db.WallDaily, data *DetailDict) (err error) {
 	// 	notes = append(notes, note)
 	// }
 	// if _, ok := dict["caption"]; !ok && data.Caption != "" {
-	// 	note := &db.WallNote{DailyId: wp.Id, NoteType: "caption"}
+	// 	note := &orm.WallNote{DailyId: wp.Id, NoteType: "caption"}
 	// 	note.NoteChinese = xq.NewNullString(data.Caption)
 	// 	if data.CaptionEn != "" {
 	// 		note.NoteEnglish = xq.NewNullString(data.CaptionEn)

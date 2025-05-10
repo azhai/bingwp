@@ -6,9 +6,10 @@ import (
 	"text/template"
 	"time"
 
-	db "github.com/azhai/bingwp/models/default"
+	"github.com/azhai/bingwp/services/orm"
 	"github.com/azhai/xgen/templater"
-	xq "github.com/azhai/xgen/xquery"
+	"github.com/go-goe/goe"
+	"github.com/go-goe/goe/query/where"
 	"github.com/gofiber/fiber/v3"
 	"github.com/k0kubun/pp"
 )
@@ -25,11 +26,12 @@ var (
 
 type WallInfo struct {
 	Thumb, Image string
-	*db.WallDaily
+	orm.WallDaily
 }
 
-func GetMonthBegin(obj time.Time) time.Time {
-	return obj.AddDate(0, 0, 1-obj.Day())
+func GetMonthBegin(t time.Time) time.Time {
+	yy, mm, _ := t.Date()
+	return time.Date(yy, mm, 1, 0, 0, 0, 0, t.Location())
 }
 
 func GetYearDoubleList(max, min int) (lefts, rights []int) {
@@ -53,12 +55,7 @@ func PageHandler(ctx fiber.Ctx) (err error) {
 	}
 	monthBegin := GetMonthBegin(dt)
 	nextBegin := GetMonthBegin(monthBegin.AddDate(0, 0, 31))
-	where := xq.WithWhere("bing_date >= ? AND bing_date < ?",
-		monthBegin.Format("2006-01-02"), nextBegin.Format("2006-01-02"))
-	var rows []*db.WallDaily
-	if err = db.Query(where).Asc("id").Find(&rows); err != nil {
-		pp.Println(err)
-	}
+	rows := queryDailyRows(monthBegin, nextBegin)
 	infos := GetDailyImages(rows)
 	year, month := dt.Year(), fmt.Sprintf("%02d", int(dt.Month()))
 	oddYears, evenYears := GetYearDoubleList(time.Now().Year(), 2009)
@@ -71,20 +68,16 @@ func PageHandler(ctx fiber.Ctx) (err error) {
 	return
 }
 
-func GetDailyImages(rows []*db.WallDaily) []*WallInfo {
-	size := len(rows)
-	ids, infos := make([]any, size), make([]*WallInfo, size)
-	for i, row := range rows {
+func GetDailyImages(dayRows []orm.WallDaily) []*WallInfo {
+	size := len(dayRows)
+	ids, infos := make([]int64, size), make([]*WallInfo, size)
+	for i, row := range dayRows {
 		ids[i] = row.Id
 		infos[i] = &WallInfo{WallDaily: row}
 	}
-	where := xq.WithRange("daily_id", ids...)
-	var imgs []*db.WallImage
-	if err := db.Query(where).Find(&imgs); err != nil {
-		return infos
-	}
+	imgRows := queryDailyImages(ids)
 	thumbs, images := make(map[string]string), make(map[string]string)
-	for _, img := range imgs {
+	for _, img := range imgRows {
 		pos := len(img.FileName) - len(".jpg")
 		dt, ver := img.FileName[pos-8:pos], ""
 		if len(img.ImgMd5) > 24 {
@@ -108,4 +101,36 @@ func GetDailyImages(rows []*db.WallDaily) []*WallInfo {
 		infos[i] = info
 	}
 	return infos
+}
+
+func queryDailyRows(monthBegin, nextBegin time.Time) (rows []orm.WallDaily) {
+	db, err := orm.Serv(), error(nil)
+	rows, err = goe.Select(db.Daily).Where(
+		where.And(
+			where.GreaterEquals(&db.Daily.BingDate, monthBegin),
+			where.Less(&db.Daily.BingDate, nextBegin),
+		),
+	).OrderByAsc(&db.Daily.Id).AsSlice()
+	if err != nil {
+		pp.Println(err)
+		panic(err)
+	}
+	pp.Println("queryDailyRows", len(rows), monthBegin, nextBegin)
+	return
+}
+
+func queryDailyImages(ids []int64) (rows []orm.WallImage) {
+	if len(ids) == 0 {
+		return
+	}
+	db, err := orm.Serv(), error(nil)
+	rows, err = goe.Select(db.Image).Where(
+		where.In(&db.Image.DailyId, ids),
+	).AsSlice()
+	if err != nil {
+		pp.Println(err)
+		panic(err)
+	}
+	pp.Println("queryDailyImages", len(rows), ids)
+	return
 }
