@@ -1,6 +1,8 @@
 package db
 
 import (
+	"fmt"
+
 	"github.com/azhai/bingwp/models"
 	"github.com/azhai/xgen/dialect"
 	xq "github.com/azhai/xgen/xquery"
@@ -23,7 +25,7 @@ func Engine() *xorm.Engine {
 	if engine == nil {
 		cfg := models.GetConnConfig("default")
 		engine = ConnectXorm(cfg)
-		engine.Sync(&WallDaily{}, &WallImage{}, &WallNote{})
+		_ = SyncModels(engine)
 	}
 	return engine
 }
@@ -62,4 +64,16 @@ func UpdateBatch(tableName, pkey string, ids any, changes map[string]any) error 
 		return tx.Table(tableName).In(pkey, ids).Update(changes)
 	}
 	return xq.ExecTx(Engine(), modify)
+}
+
+// SyncModels 同步数据库表结构
+func SyncModels(eng *xorm.Engine) error {
+	if eng == nil {
+		return fmt.Errorf("the connection is lost")
+	}
+	return eng.Sync(
+		&WallDaily{},
+		&WallImage{},
+		&WallNote{},
+	)
 }

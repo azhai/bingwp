@@ -78,3 +78,5 @@ require (
 	golang.org/x/tools v0.33.0 // indirect
 	xorm.io/builder v0.3.13 // indirect
 )
+
+replace github.com/azhai/xgen => ../xgen

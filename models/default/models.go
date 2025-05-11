@@ -9,13 +9,15 @@ import (
 // WallDaily 每日壁纸
 type WallDaily struct {
 	Id       int64     `json:"id" form:"id" xorm:"pk BIGINT"`
-	Guid     string    `json:"guid" form:"guid" xorm:"notnull comment('bing.wilii.cn原始ID') CHAR(10)"`
-	BingDate time.Time `json:"bing_date" form:"bing_date" xorm:"comment('必应的发布日期') unique DATE"`
-	BingSku  string    `json:"bing_sku" form:"bing_sku" xorm:"notnull comment('必应图片编号') index VARCHAR(100)"`
-	Title    string    `json:"title" form:"title" xorm:"notnull comment('标题') index VARCHAR(255)"`
-	Headline string    `json:"headline" form:"headline" xorm:"notnull comment('简介') VARCHAR(255)"`
-	Color    string    `json:"color" form:"color" xorm:"notnull comment('主色调') VARCHAR(15)"`
-	MaxDpi   string    `json:"max_dpi" form:"max_dpi" xorm:"notnull comment('图片最大分辨率') VARCHAR(15)"`
+	Guid     string    `json:"guid" form:"guid" xorm:"notnull CHAR(10) comment('bing.wilii.cn原始ID')"`
+	BingDate time.Time `json:"bing_date" form:"bing_date" xorm:"unique DATE comment('必应的发布日期')"`
+	BingSku  string    `json:"bing_sku" form:"bing_sku" xorm:"notnull index VARCHAR(100) comment('必应图片编号')"`
+	Title    string    `json:"title" form:"title" xorm:"notnull index VARCHAR(255) comment('标题')"`
+	Headline string    `json:"headline" form:"headline" xorm:"notnull VARCHAR(255) comment('简介')"`
+	Color    string    `json:"color" form:"color" xorm:"notnull VARCHAR(15) comment('主色调')"`
+	MaxDpi   string    `json:"max_dpi" form:"max_dpi" xorm:"notnull VARCHAR(15) comment('图片最大分辨率')"`
+
+	WallDailyForeign `json:",inline" xorm:"-"`
 }
 
 // TableName WallDaily的表名
@@ -30,14 +32,13 @@ func (*WallDaily) TableComment() string {
 
 // WallImage 壁纸图片
 type WallImage struct {
-	Id        int64  `json:"id" form:"id" xorm:"pk BIGINT"`
-	DailyId   int64  `json:"daily_id" form:"daily_id" xorm:"notnull comment('墙纸ID') index BIGINT"`
-	FileName  string `json:"file_name" form:"file_name" xorm:"notnull comment('文件路径') VARCHAR(100)"`
-	ImgMd5    string `json:"img_md5" form:"img_md5" xorm:"notnull comment('图片MD5哈希') index CHAR(32)"`
-	ImgSize   int64  `json:"img_size" form:"img_size" xorm:"notnull comment('图片大小（单位：字节）') index BIGINT"`
-	ImgOffset int64  `json:"img_offset" form:"img_offset" xorm:"notnull comment('图片在文件中偏移') BIGINT"`
-	ImgWidth  int    `json:"img_width" form:"img_width" xorm:"notnull comment('图片宽度') INTEGER"`
-	ImgHeight int    `json:"img_height" form:"img_height" xorm:"notnull comment('图片高度') INTEGER"`
+	Id            int64 `json:"id" form:"id" xorm:"pk BIGINT"`
+	DailyId       int64 `json:"daily_id" form:"daily_id" xorm:"notnull index BIGINT comment('墙纸ID')"`
+	ImageUrlMixin `json:",inline" xorm:"extends"`
+	ImgSize       int64 `json:"img_size" form:"img_size" xorm:"notnull index BIGINT comment('图片大小，单位：字节')"`
+	ImgOffset     int64 `json:"img_offset" form:"img_offset" xorm:"notnull BIGINT comment('图片在文件中偏移')"`
+	ImgWidth      int   `json:"img_width" form:"img_width" xorm:"notnull INTEGER comment('图片宽度')"`
+	ImgHeight     int   `json:"img_height" form:"img_height" xorm:"notnull INTEGER comment('图片高度')"`
 }
 
 // TableName WallImage的表名
@@ -52,11 +53,11 @@ func (*WallImage) TableComment() string {
 
 // WallNote 墙纸小知识
 type WallNote struct {
-	Id          int64             `json:"id" form:"id" xorm:"pk BIGINT serial"`
-	DailyId     int64             `json:"daily_id" form:"daily_id" xorm:"notnull comment('墙纸ID') index BIGINT"`
-	NoteType    string            `json:"note_type" form:"note_type" xorm:"notnull comment('小知识类型') VARCHAR(50)"`
-	NoteChinese xutils.NullString `json:"note_chinese" form:"note_chinese" xorm:"comment('中文描述') TEXT"`
-	NoteEnglish xutils.NullString `json:"note_english" form:"note_english" xorm:"comment('英文描述') TEXT"`
+	Id          int64             `json:"id" form:"id" xorm:"pk autoincr unique BIGINT"`
+	DailyId     int64             `json:"daily_id" form:"daily_id" xorm:"notnull BIGINT comment('墙纸ID')"`
+	NoteType    string            `json:"note_type" form:"note_type" xorm:"notnull VARCHAR(50) comment('小知识类型')"`
+	NoteChinese xutils.NullString `json:"note_chinese" form:"note_chinese" xorm:"TEXT comment('中文描述')"`
+	NoteEnglish xutils.NullString `json:"note_english" form:"note_english" xorm:"TEXT comment('英文描述')"`
 }
 
 // TableName WallNote的表名

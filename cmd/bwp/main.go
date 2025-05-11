@@ -15,7 +15,17 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/static"
 )
 
-var app *fiber.App
+var (
+	appName    = "Bing Wallpaper"
+	appVersion = "0.0.0"
+)
+
+func getAppName() string {
+	if appVersion != "" && appVersion != "0.0.0" {
+		return fmt.Sprintf("%s v%s", appName, appVersion)
+	}
+	return appName
+}
 
 var args struct {
 	Update  *UpdateCmd `arg:"subcommand:up" help:"更新数据"`
@@ -24,19 +34,23 @@ var args struct {
 	ServerOpts
 }
 
+// ServerOpts 服务配置
 type ServerOpts struct {
 	Host     string `arg:"-s,--host" default:"" help:"运行IP"`              // 运行IP
 	Port     int    `arg:"-p,--port" default:"9870" help:"运行端口"`          // 运行端口
 	ImageDir string `arg:"-d,--dir" help:"图片目录" hcl:"image_dir,optional"` // 图片目录
 }
 
+// GetServerAddr 获取服务地址
 func (t ServerOpts) GetServerAddr() string {
 	return fmt.Sprintf("%s:%d", t.Host, t.Port)
 }
 
+// UpdateCmd 更新数据
 type UpdateCmd struct {
 }
 
+// Run 下载图像并记录到数据库
 func (c *UpdateCmd) Run() {
 	// 从微软Bing下载最新的图像，以及标题
 	var err error
@@ -49,10 +63,14 @@ func (c *UpdateCmd) Run() {
 	if num < 2 {
 		num = 2
 	}
-	handlers.SaveListPages(1, num, false)
+	if err = handlers.SaveListPages(1, num, false); err != nil {
+		logging.Error(err)
+	}
 
 	// 从详情中读取正文等内容
-	handlers.SaveSomeDetails(5, 1)
+	if err = handlers.SaveSomeDetails(5, 1); err != nil {
+		logging.Error(err)
+	}
 }
 
 // NewApp 创建http服务
@@ -76,13 +94,16 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	appName, appVersion = root.App.Name, root.App.Version
 	if args.ImageDir == "" {
-		root.ParseAppRemain(&args.ServerOpts)
+		err = root.ParseAppRemain(&args.ServerOpts)
+		if err != nil {
+			panic(err)
+		}
 	}
 	handlers.SetImageSaveDir(args.ImageDir)
 	models.PrepareConns(root)
 	config.SetupLog(root.Log)
-	app = NewApp(root.App.Name, args.ImageDir)
 	if args.Verbose {
 		fmt.Println("Config file is", args.Config)
 		fmt.Println("Image dir is", args.ImageDir)
@@ -98,9 +119,10 @@ func main() {
 		return
 	}
 
-	addr := args.GetServerAddr()
-	greeting := fmt.Sprintf("Server is start at %s ...", addr)
+	name, addr := getAppName(), args.GetServerAddr()
+	greeting := fmt.Sprintf("Server %s is start at %s ...", name, addr)
 	logging.Info(greeting)
+	app := NewApp(name, args.ImageDir)
 	if err = app.Listen(addr); err != nil {
 		panic(err)
 	}

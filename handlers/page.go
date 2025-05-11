@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	tpl = templater.NewFactory("./views").UpdateFuncs(template.FuncMap{
+	tpl = templater.NewFactory("./views", true).UpdateFuncs(template.FuncMap{
 		"Date": func(dt time.Time) string {
 			return dt.Format("2006-01-02")
 		},
@@ -23,15 +23,14 @@ var (
 	})
 )
 
-type WallInfo struct {
-	Thumb, Image string
-	*db.WallDaily
+// GetMonthBegin 获取月份的第一天零点零分
+func GetMonthBegin(t time.Time) time.Time {
+	yy, mm, _ := t.Date()
+	loc := t.Location()
+	return time.Date(yy, mm, 1, 0, 0, 0, 0, loc)
 }
 
-func GetMonthBegin(obj time.Time) time.Time {
-	return obj.AddDate(0, 0, 1-obj.Day())
-}
-
+// GetYearDoubleList 将年份分为左右两个列表
 func GetYearDoubleList(max, min int) (lefts, rights []int) {
 	if (max-min)%2 == 0 {
 		max += 1
@@ -59,11 +58,11 @@ func PageHandler(ctx fiber.Ctx) (err error) {
 	if err = db.Query(where).Asc("id").Find(&rows); err != nil {
 		pp.Println(err)
 	}
-	infos := GetDailyImages(rows)
+	rows = GetDailyNotes(GetDailyImages(rows))
 	year, month := dt.Year(), fmt.Sprintf("%02d", int(dt.Month()))
 	oddYears, evenYears := GetYearDoubleList(time.Now().Year(), 2009)
-	data := fiber.Map{"Year": year, "Month": month,
-		"OddYears": oddYears, "EvenYears": evenYears, "Rows": infos}
+	data := fiber.Map{"Year": year, "Month": month, "CurrYear": monthBegin.Year(),
+		"OddYears": oddYears, "EvenYears": evenYears, "Rows": rows}
 	var body []byte
 	if body, err = tpl.Render("home", data); err == nil {
 		err = ctx.Type("html").Send(body)
@@ -71,41 +70,63 @@ func PageHandler(ctx fiber.Ctx) (err error) {
 	return
 }
 
-func GetDailyImages(rows []*db.WallDaily) []*WallInfo {
-	size := len(rows)
-	ids, infos := make([]any, size), make([]*WallInfo, size)
-	for i, row := range rows {
-		ids[i] = row.Id
-		infos[i] = &WallInfo{WallDaily: row}
+// GetDailyImages 从数据库中加载每日图片的URL地址
+func GetDailyImages(rows []*db.WallDaily) []*db.WallDaily {
+	var ids []any
+	for _, row := range rows {
+		ids = append(ids, row.Id)
 	}
 	where := xq.WithRange("daily_id", ids...)
-	var imgs []*db.WallImage
-	if err := db.Query(where).Find(&imgs); err != nil {
-		return infos
+	var imgRows []*db.WallImage
+	if err := db.Query(where).Find(&imgRows); err != nil {
+		return rows
 	}
-	thumbs, images := make(map[string]string), make(map[string]string)
-	for _, img := range imgs {
-		pos := len(img.FileName) - len(".jpg")
-		dt, ver := img.FileName[pos-8:pos], ""
-		if len(img.ImgMd5) > 24 {
-			ver = img.ImgMd5[24:]
-		}
-		url := fmt.Sprintf("%s?v=%s", img.FileName, ver)
-		if strings.HasPrefix(img.FileName, "thumb") {
-			thumbs[dt] = url
+	thumbs, images := make(map[int64]string), make(map[int64]string)
+	for _, row := range imgRows {
+		url := row.GetUrl()
+		if strings.HasPrefix(row.FileName, "thumb") {
+			thumbs[row.DailyId] = url
 		} else {
-			images[dt] = url
+			images[row.DailyId] = url
 		}
 	}
-	for i, info := range infos {
-		dt := info.BingDate.Format("20060102")
-		if url, ok := thumbs[dt]; ok {
-			info.Thumb = url
+	for i, row := range rows {
+		if url, ok := thumbs[row.Id]; ok {
+			row.ThumbUrl = url
 		}
-		if url, ok := images[dt]; ok {
-			info.Image = url
+		if url, ok := images[row.Id]; ok {
+			row.ImageUrl = url
 		}
-		infos[i] = info
+		rows[i] = row
 	}
-	return infos
+	return rows
+}
+
+// GetDailyNotes 从数据库中加载每日图片的小知识
+func GetDailyNotes(rows []*db.WallDaily) []*db.WallDaily {
+	var ids []any
+	for _, row := range rows {
+		ids = append(ids, row.Id)
+	}
+	where := xq.WithRange("daily_id", ids...)
+	var noteRows []*db.WallNote
+	if err := db.Query(where).Find(&noteRows); err != nil {
+		return rows
+	}
+	notes := make(map[int64]map[string]*db.WallNote)
+	for _, row := range noteRows {
+		if _, ok := notes[row.DailyId]; !ok {
+			notes[row.DailyId] = map[string]*db.WallNote{
+				"title": nil, "headline": nil, "description": nil,
+			}
+		}
+		notes[row.DailyId][row.NoteType] = row
+	}
+	for i, row := range rows {
+		if dict, ok := notes[row.Id]; ok {
+			row.Notes = dict
+		}
+		rows[i] = row
+	}
+	return rows
 }

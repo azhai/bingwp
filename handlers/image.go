@@ -37,17 +37,23 @@ func ThumbPath(dt time.Time) string {
 	return fmt.Sprintf("thumb/%s/%s.jpg", date[:4], date)
 }
 
+func NewWallImages(id int64, img string) *db.WallImage {
+	obj := new(db.WallImage)
+	obj.DailyId, obj.FileName = id, img
+	return obj
+}
+
 func UpdateDailyImages(wp *db.WallDaily) (dims string, err error) {
 	thumbFile, imageFile := ThumbPath(wp.BingDate), ImagePath(wp.BingDate)
 	if err = FetchImages(wp.BingSku, false, thumbFile, imageFile); err != nil {
 		return
 	}
-	thumb := &db.WallImage{DailyId: wp.Id, FileName: thumbFile}
+	thumb := NewWallImages(wp.Id, thumbFile)
 	thumb.Id = thumb.DailyId*2 - 1
 	if thumb, err = LoadImageRow(thumb); err == nil {
 		_, err = UpdateImageInfo(thumb)
 	}
-	image := &db.WallImage{DailyId: wp.Id, FileName: imageFile}
+	image := NewWallImages(wp.Id, imageFile)
 	image.Id = image.DailyId * 2
 	if image, err = LoadImageRow(image); err == nil {
 		dims, err = UpdateImageInfo(image)
@@ -149,7 +155,7 @@ func RebuildImageRecords() (err error) {
 	for dt.After(stop) {
 		id := GetOffsetDay(dt)
 		thumbFile, imageFile := ThumbPath(dt), ImagePath(dt)
-		thumb := &db.WallImage{DailyId: id, FileName: thumbFile}
+		thumb := NewWallImages(id, thumbFile)
 		thumb.Id = thumb.DailyId*2 - 1
 		if err = thumb.Save(nil); err == nil {
 			_, err = UpdateImageInfo(thumb)
@@ -157,7 +163,7 @@ func RebuildImageRecords() (err error) {
 				fmt.Println(err)
 			}
 		}
-		image := &db.WallImage{DailyId: id, FileName: imageFile}
+		image := NewWallImages(id, imageFile)
 		image.Id = image.DailyId * 2
 		if err = image.Save(nil); err == nil {
 			_, err = UpdateImageInfo(image)
