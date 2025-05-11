@@ -7,7 +7,7 @@ toolchain go1.24.2
 require (
 	github.com/alexflint/go-arg v1.5.1
 	github.com/azhai/gozzo v1.4.4
-	github.com/azhai/xgen v1.8.4
+	github.com/azhai/xgen v1.8.6
 	github.com/goccy/go-json v0.10.5
 	github.com/gofiber/fiber/v3 v3.0.0-beta.4
 	github.com/k0kubun/pp v3.0.1+incompatible
@@ -32,7 +32,6 @@ require (
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.8.0 // indirect
 	github.com/go-playground/form/v4 v4.2.1 // indirect
-	github.com/go-sql-driver/mysql v1.9.2 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gofiber/schema v1.3.0 // indirect
 	github.com/gofiber/utils/v2 v2.0.0-beta.8 // indirect
@@ -79,4 +78,4 @@ require (
 	xorm.io/builder v0.3.13 // indirect
 )
 
-replace github.com/azhai/xgen => ../xgen
+// replace github.com/azhai/xgen => ../xgen
