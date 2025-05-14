@@ -2,13 +2,11 @@ package handlers
 
 import (
 	"fmt"
-	"strings"
 	"text/template"
 	"time"
 
-	db "github.com/azhai/bingwp/models/default"
+	"github.com/azhai/bingwp/services/database"
 	"github.com/azhai/xgen/templater"
-	xq "github.com/azhai/xgen/xquery"
 	"github.com/gofiber/fiber/v3"
 	"github.com/k0kubun/pp"
 )
@@ -52,13 +50,9 @@ func PageHandler(ctx fiber.Ctx) (err error) {
 	}
 	monthBegin := GetMonthBegin(dt)
 	nextBegin := GetMonthBegin(monthBegin.AddDate(0, 0, 31))
-	where := xq.WithWhere("bing_date >= ? AND bing_date < ?",
-		monthBegin.Format("2006-01-02"), nextBegin.Format("2006-01-02"))
-	var rows []*db.WallDaily
-	if err = db.Query(where).Asc("id").Find(&rows); err != nil {
-		pp.Println(err)
-	}
-	rows = GetDailyNotes(GetDailyImages(rows))
+	rows := database.GetMonthDailyRows(monthBegin, nextBegin)
+	rows = database.GetDailyNotes(database.GetDailyImages(rows))
+	pp.Println(rows[0])
 	year, month := dt.Year(), fmt.Sprintf("%02d", int(dt.Month()))
 	oddYears, evenYears := GetYearDoubleList(time.Now().Year(), 2009)
 	data := fiber.Map{"Year": year, "Month": month, "CurrYear": monthBegin.Year(),
@@ -68,65 +62,4 @@ func PageHandler(ctx fiber.Ctx) (err error) {
 		err = ctx.Type("html").Send(body)
 	}
 	return
-}
-
-// GetDailyImages 从数据库中加载每日图片的URL地址
-func GetDailyImages(rows []*db.WallDaily) []*db.WallDaily {
-	var ids []any
-	for _, row := range rows {
-		ids = append(ids, row.Id)
-	}
-	where := xq.WithRange("daily_id", ids...)
-	var imgRows []*db.WallImage
-	if err := db.Query(where).Find(&imgRows); err != nil {
-		return rows
-	}
-	thumbs, images := make(map[int64]string), make(map[int64]string)
-	for _, row := range imgRows {
-		url := row.GetUrl()
-		if strings.HasPrefix(row.FileName, "thumb") {
-			thumbs[row.DailyId] = url
-		} else {
-			images[row.DailyId] = url
-		}
-	}
-	for i, row := range rows {
-		if url, ok := thumbs[row.Id]; ok {
-			row.ThumbUrl = url
-		}
-		if url, ok := images[row.Id]; ok {
-			row.ImageUrl = url
-		}
-		rows[i] = row
-	}
-	return rows
-}
-
-// GetDailyNotes 从数据库中加载每日图片的小知识
-func GetDailyNotes(rows []*db.WallDaily) []*db.WallDaily {
-	var ids []any
-	for _, row := range rows {
-		ids = append(ids, row.Id)
-	}
-	where := xq.WithRange("daily_id", ids...)
-	var noteRows []*db.WallNote
-	if err := db.Query(where).Find(&noteRows); err != nil {
-		return rows
-	}
-	notes := make(map[int64]map[string]*db.WallNote)
-	for _, row := range noteRows {
-		if _, ok := notes[row.DailyId]; !ok {
-			notes[row.DailyId] = map[string]*db.WallNote{
-				"title": nil, "headline": nil, "description": nil,
-			}
-		}
-		notes[row.DailyId][row.NoteType] = row
-	}
-	for i, row := range rows {
-		if dict, ok := notes[row.Id]; ok {
-			row.Notes = dict
-		}
-		rows[i] = row
-	}
-	return rows
 }

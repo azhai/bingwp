@@ -33,7 +33,7 @@ func (*WallDaily) TableComment() string {
 // WallImage 壁纸图片
 type WallImage struct {
 	Id            int64 `json:"id" form:"id" xorm:"pk BIGINT"`
-	DailyId       int64 `json:"daily_id" form:"daily_id" xorm:"notnull index BIGINT comment('墙纸ID')"`
+	DailyId       int64 `json:"daily_id" form:"daily_id" xorm:"notnull index BIGINT comment('壁纸ID')"`
 	ImageUrlMixin `json:",inline" xorm:"extends"`
 	ImgSize       int64 `json:"img_size" form:"img_size" xorm:"notnull index BIGINT comment('图片大小，单位：字节')"`
 	ImgOffset     int64 `json:"img_offset" form:"img_offset" xorm:"notnull BIGINT comment('图片在文件中偏移')"`
@@ -51,10 +51,10 @@ func (*WallImage) TableComment() string {
 	return "壁纸图片"
 }
 
-// WallNote 墙纸小知识
+// WallNote 壁纸小知识
 type WallNote struct {
 	Id          int64             `json:"id" form:"id" xorm:"pk autoincr unique BIGINT"`
-	DailyId     int64             `json:"daily_id" form:"daily_id" xorm:"notnull BIGINT comment('墙纸ID')"`
+	DailyId     int64             `json:"daily_id" form:"daily_id" xorm:"notnull BIGINT comment('壁纸ID')"`
 	NoteType    string            `json:"note_type" form:"note_type" xorm:"notnull VARCHAR(50) comment('小知识类型')"`
 	NoteChinese xutils.NullString `json:"note_chinese" form:"note_chinese" xorm:"TEXT comment('中文描述')"`
 	NoteEnglish xutils.NullString `json:"note_english" form:"note_english" xorm:"TEXT comment('英文描述')"`
@@ -67,5 +67,5 @@ func (*WallNote) TableName() string {
 
 // TableComment WallNote的备注
 func (*WallNote) TableComment() string {
-	return "墙纸小知识"
+	return "壁纸小知识"
 }

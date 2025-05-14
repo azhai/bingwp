@@ -1,6 +1,8 @@
 package db
 
 import (
+	"strings"
+
 	xq "github.com/azhai/xgen/xquery"
 )
 
@@ -55,4 +57,65 @@ func LoadNoteByDailyId(dailyId int64) (map[string]*WallNote, error) {
 		}
 	}
 	return data, err
+}
+
+// GetDailyImages 从数据库中加载每日图片的URL地址
+func GetDailyImages(rows []*WallDaily) []*WallDaily {
+	var ids []any
+	for _, row := range rows {
+		ids = append(ids, row.Id)
+	}
+	where := xq.WithRange("daily_id", ids...)
+	var imgRows []*WallImage
+	if err := Query(where).Find(&imgRows); err != nil {
+		return rows
+	}
+	thumbs, images := make(map[int64]string), make(map[int64]string)
+	for _, row := range imgRows {
+		url := row.GetUrl()
+		if strings.HasPrefix(row.FileName, "thumb") {
+			thumbs[row.DailyId] = url
+		} else {
+			images[row.DailyId] = url
+		}
+	}
+	for i, row := range rows {
+		if url, ok := thumbs[row.Id]; ok {
+			row.ThumbUrl = url
+		}
+		if url, ok := images[row.Id]; ok {
+			row.ImageUrl = url
+		}
+		rows[i] = row
+	}
+	return rows
+}
+
+// GetDailyNotes 从数据库中加载每日图片的小知识
+func GetDailyNotes(rows []*WallDaily) []*WallDaily {
+	var ids []any
+	for _, row := range rows {
+		ids = append(ids, row.Id)
+	}
+	where := xq.WithRange("daily_id", ids...)
+	var noteRows []*WallNote
+	if err := Query(where).Find(&noteRows); err != nil {
+		return rows
+	}
+	notes := make(map[int64]map[string]*WallNote)
+	for _, row := range noteRows {
+		if _, ok := notes[row.DailyId]; !ok {
+			notes[row.DailyId] = map[string]*WallNote{
+				"title": nil, "headline": nil, "description": nil,
+			}
+		}
+		notes[row.DailyId][row.NoteType] = row
+	}
+	for i, row := range rows {
+		if dict, ok := notes[row.Id]; ok {
+			row.Notes = dict
+		}
+		rows[i] = row
+	}
+	return rows
 }
