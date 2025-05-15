@@ -40,7 +40,7 @@ func GetYearDoubleList(max, min int) (lefts, rights []int) {
 	return
 }
 
-// PageHandler 首页
+// PageHandler 首页，按月显示壁纸
 func PageHandler(ctx fiber.Ctx) (err error) {
 	var dt time.Time
 	yearMonth := ctx.Params("month")
@@ -52,7 +52,9 @@ func PageHandler(ctx fiber.Ctx) (err error) {
 	nextBegin := GetMonthBegin(monthBegin.AddDate(0, 0, 31))
 	rows := database.GetMonthDailyRows(monthBegin, nextBegin)
 	rows = database.GetDailyNotes(database.GetDailyImages(rows))
-	pp.Println(rows[0])
+	if len(rows) > 0 {
+		pp.Println(rows[0])
+	}
 	year, month := dt.Year(), fmt.Sprintf("%02d", int(dt.Month()))
 	oddYears, evenYears := GetYearDoubleList(time.Now().Year(), 2009)
 	data := fiber.Map{"Year": year, "Month": month, "CurrYear": monthBegin.Year(),

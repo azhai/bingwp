@@ -2,6 +2,8 @@ package database
 
 import (
 	"database/sql"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -28,6 +30,30 @@ func (*WallDaily) TableComment() string {
 	return "每日壁纸"
 }
 
+// ScanFrom 从src中读取数据写入当前对象
+func (m *WallDaily) ScanFrom(src ScanSource, err error) error {
+	if err == nil {
+		err = src.Scan(&m.Id, &m.Guid, &m.BingDate,
+			&m.BingSku, &m.Title, &m.Headline, &m.Color, &m.MaxDpi)
+	}
+	return err
+}
+
+// WallDailyList 每日壁纸列表
+type WallDailyList []*WallDaily
+
+// GetIds 获取所有的主键ID
+func (ms WallDailyList) GetIds() string {
+	var ids []string
+	for _, row := range ms {
+		ids = append(ids, strconv.FormatInt(row.Id, 10))
+	}
+	if len(ids) == 0 {
+		return "0"
+	}
+	return strings.Join(ids, ",")
+}
+
 // WallImage 壁纸图片
 type WallImage struct {
 	Id            int64 `json:"id" form:"id" db:"pk;type:int"`
@@ -49,6 +75,20 @@ func (*WallImage) TableComment() string {
 	return "壁纸图片"
 }
 
+// ForeignValue WallImage的外键
+func (m *WallImage) ForeignValue() int64 {
+	return m.DailyId
+}
+
+// ScanFrom 从src中读取数据写入当前对象
+func (m *WallImage) ScanFrom(src ScanSource, err error) error {
+	if err == nil {
+		err = src.Scan(&m.Id, &m.DailyId, &m.FileName,
+			&m.ImgMd5, &m.ImgSize, &m.ImgOffset, &m.ImgWidth, &m.ImgHeight)
+	}
+	return err
+}
+
 // WallNote 壁纸小知识
 type WallNote struct {
 	Id          int64          `json:"id" form:"id" db:"pk;serial;type:int"`
@@ -66,4 +106,18 @@ func (*WallNote) TableName() string {
 // TableComment WallNote的备注
 func (*WallNote) TableComment() string {
 	return "壁纸小知识"
+}
+
+// ForeignValue WallNote的外键
+func (m *WallNote) ForeignValue() int64 {
+	return m.DailyId
+}
+
+// ScanFrom 从src中读取数据写入当前对象
+func (m *WallNote) ScanFrom(src ScanSource, err error) error {
+	if err == nil {
+		err = src.Scan(&m.Id, &m.DailyId, &m.NoteType,
+			&m.NoteChinese, &m.NoteEnglish)
+	}
+	return err
 }
