@@ -5,6 +5,7 @@ import (
 	"time"
 
 	db "github.com/azhai/bingwp/models/default"
+	"github.com/azhai/bingwp/services/database"
 	xq "github.com/azhai/xgen/xquery"
 )
 
@@ -65,9 +66,9 @@ func GetSkuFromFullUrl(url string) string {
 	return strings.TrimSpace(url)
 }
 
-// CreateDailyModel 创建一行 Daily
-func CreateDailyModel(card DailyDict) *db.WallDaily {
-	wp := &db.WallDaily{MaxDpi: "400x240"}
+// CreateWallDaily 创建一行 Daily
+func CreateWallDaily(card DailyDict) *database.WallDaily {
+	wp := &database.WallDaily{MaxDpi: "400x240"}
 	wp.BingDate = MustParseDate(card.Date)
 	wp.Id = GetOffsetDay(wp.BingDate)
 	wp.Guid, wp.Color = card.Guid, card.Color
@@ -83,41 +84,34 @@ func CreateDailyModel(card DailyDict) *db.WallDaily {
 
 // InsertNotExistDailyRows 写入多行 Daily ，但先要排除掉已存在的行
 func InsertNotExistDailyRows(items []DailyDict, withImages bool) (num int, err error) {
-	var (
-		dailyRows, existRows []*db.WallDaily
-		dates, rows          []any
-	)
-	dict := make(map[string]int64)
+	var dailyRows, existRows []*database.WallDaily
+	dates := ""
 	for _, card := range items {
-		if wp := CreateDailyModel(card); wp != nil {
+		if wp := CreateWallDaily(card); wp != nil {
 			bingDate := wp.BingDate.Format("2006-01-02")
-			dates = append(dates, bingDate)
-			dict[bingDate] = 0
+			dates += "'" + bingDate + "', "
 			dailyRows = append(dailyRows, wp)
 		}
 	}
-	where := xq.WithRange("bing_date", dates...)
-	err = db.Query(where).Asc("bing_date").Find(&existRows)
-	if err == nil {
-		for _, wp := range existRows {
-			bingDate := wp.BingDate.Format("2006-01-02")
-			dict[bingDate] = wp.Id
-		}
+	if strings.HasSuffix(dates, ", ") {
+		dates = dates[:len(dates)-2]
 	}
-	var dims string
-	for _, wp := range dailyRows {
-		bingDate := wp.BingDate.Format("2006-01-02")
-		if id, ok := dict[bingDate]; !ok || id == 0 {
-			if withImages {
-				if dims, err = UpdateDailyImages(wp); dims != "" {
-					wp.MaxDpi = dims
-				}
-			}
-			rows = append(rows, wp)
-		}
-	}
-	if num = len(rows); num > 0 {
-		err = db.InsertBatch(dailyTable, rows...)
-	}
+	num, err = database.InsertDailyRows(dailyRows, dates)
+
+	// var dims string
+	// for _, wp := range dailyRows {
+	// 	bingDate := wp.BingDate.Format("2006-01-02")
+	// 	if id, ok := dict[bingDate]; !ok || id == 0 {
+	// 		if withImages {
+	// 			if dims, err = UpdateDailyImages(wp); dims != "" {
+	// 				wp.MaxDpi = dims
+	// 			}
+	// 		}
+	// 		rows = append(rows, wp)
+	// 	}
+	// }
+	// if num = len(rows); num > 0 {
+	// 	err = database.InsertBatch(dailyTable, rows...)
+	// }
 	return
 }

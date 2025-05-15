@@ -8,7 +8,6 @@ import (
 	"github.com/azhai/bingwp/services/database"
 	"github.com/azhai/xgen/templater"
 	"github.com/gofiber/fiber/v3"
-	"github.com/k0kubun/pp"
 )
 
 var (
@@ -52,9 +51,9 @@ func PageHandler(ctx fiber.Ctx) (err error) {
 	nextBegin := GetMonthBegin(monthBegin.AddDate(0, 0, 31))
 	rows := database.GetMonthDailyRows(monthBegin, nextBegin)
 	rows = database.GetDailyNotes(database.GetDailyImages(rows))
-	if len(rows) > 0 {
-		pp.Println(rows[0])
-	}
+	// if len(rows) > 0 {
+	// 	pp.Println(rows[0])
+	// }
 	year, month := dt.Year(), fmt.Sprintf("%02d", int(dt.Month()))
 	oddYears, evenYears := GetYearDoubleList(time.Now().Year(), 2009)
 	data := fiber.Map{"Year": year, "Month": month, "CurrYear": monthBegin.Year(),
