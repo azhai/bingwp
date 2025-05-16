@@ -1,16 +1,17 @@
 package database
 
 import (
+	"fmt"
 	"time"
 )
 
 // WallDailyForeign 关联查询字段
 type WallDailyForeign struct {
-	ImageUrl string      `json:"image_url" form:"image_url" db:"-"`
-	ThumbUrl string      `json:"thumb_url" form:"thumb_url" db:"-"`
-	Thumb    *WallImage  `json:"thumb" form:"thumb" db:"-"`
-	Image    *WallImage  `json:"image" form:"image" db:"-"`
-	Notes    []*WallNote `json:"notes" form:"notes" db:"-"`
+	ImageUrl string               `json:"image_url" form:"image_url" db:"-"`
+	ThumbUrl string               `json:"thumb_url" form:"thumb_url" db:"-"`
+	Thumb    *WallImage           `json:"thumb" form:"thumb" db:"-"`
+	Image    *WallImage           `json:"image" form:"image" db:"-"`
+	Notes    map[string]*WallNote `json:"notes" form:"notes" db:"-"`
 }
 
 // ImageUrlMixin 图片URL
@@ -27,6 +28,19 @@ func (m *ImageUrlMixin) GetUrl() string {
 		url += "?v=" + m.ImgMd5[24:]
 	}
 	return url
+}
+
+// GetLatestDailyRows 读取最后的一些每日壁纸
+func GetLatestDailyRows(limit, start int) []*WallDaily {
+	table := new(WallDaily).TableName()
+	tpl := "SELECT * FROM %s ORDER BY id DESC LIMIT %d OFFSET %d"
+	rows, err := New().Query(fmt.Sprintf(tpl, table, limit, start))
+	var dailyRows []*WallDaily
+	if err == nil {
+		err = ScanToList(&dailyRows, rows)
+	}
+	CheckErr(err)
+	return dailyRows
 }
 
 // GetMonthDailyRows 读取指定月份的每日壁纸
@@ -47,27 +61,24 @@ func GetMonthDailyRows(monthBegin, nextBegin time.Time) []*WallDaily {
 func GetDailyImages(dailyRows []*WallDaily) []*WallDaily {
 	table := new(WallImage).TableName()
 	ids := WallDailyList(dailyRows).GetIds()
-	sql := "SELECT * FROM " + table + " WHERE daily_id IN (" + ids + ")"
-	rows, err := New().Query(sql + " AND file_name LIKE 'thumb/%' ORDER BY daily_id")
-	var thumbRows = make(map[int64]*WallImage)
+	tpl := "SELECT * FROM %s WHERE daily_id IN (%s) ORDER BY daily_id"
+	rows, err := New().Query(fmt.Sprintf(tpl, table, ids))
+	var imageRows = make(map[int64]map[string]*WallImage)
 	if err == nil {
-		err = ScanToUnique(thumbRows, rows)
+		err = ScanToSecondary(imageRows, rows)
 	}
 	CheckErr(err)
-	rows, err = New().Query(sql + " AND file_name LIKE 'image/%' ORDER BY daily_id")
-	var imageRows = make(map[int64]*WallImage)
-	if err == nil {
-		err = ScanToUnique(imageRows, rows)
-	}
-	CheckErr(err)
+	var img *WallImage
 	for i, row := range dailyRows {
-		if img, ok := thumbRows[row.Id]; ok {
-			row.Thumb = img
-			row.ThumbUrl = img.GetUrl()
-		}
-		if img, ok := imageRows[row.Id]; ok {
-			row.Image = img
-			row.ImageUrl = img.GetUrl()
+		if dict, ok := imageRows[row.Id]; ok {
+			if img, ok = dict["thumb"]; ok {
+				row.Thumb = img
+				row.ThumbUrl = img.GetUrl()
+			}
+			if img, ok = dict["image"]; ok {
+				row.Image = img
+				row.ImageUrl = img.GetUrl()
+			}
 		}
 		dailyRows[i] = row
 	}
@@ -78,11 +89,11 @@ func GetDailyImages(dailyRows []*WallDaily) []*WallDaily {
 func GetDailyNotes(dailyRows []*WallDaily) []*WallDaily {
 	table := new(WallNote).TableName()
 	ids := WallDailyList(dailyRows).GetIds()
-	sql := "SELECT * FROM " + table + " WHERE daily_id IN (" + ids + ") ORDER BY daily_id"
-	rows, err := New().Query(sql)
-	var noteRows = make(map[int64][]*WallNote)
+	tpl := "SELECT * FROM %s WHERE daily_id IN (%s) ORDER BY daily_id"
+	rows, err := New().Query(fmt.Sprintf(tpl, table, ids))
+	var noteRows = make(map[int64]map[string]*WallNote)
 	if err == nil {
-		err = ScanToIndex(noteRows, rows)
+		err = ScanToSecondary(noteRows, rows)
 	}
 	CheckErr(err)
 	for i, row := range dailyRows {
@@ -98,7 +109,7 @@ func GetDailyNotes(dailyRows []*WallDaily) []*WallDaily {
 func InsertDailyRows(dailyRows []*WallDaily, dates string) (int, error) {
 	model := new(WallDaily)
 	table := model.TableName()
-	sql := "SELECT * FROM " + table + " WHERE bing_date IN (" + dates + ")"
+	sql := fmt.Sprintf("SELECT * FROM %s WHERE bing_date IN (%s)", table, dates)
 	rows, err := New().Query(sql)
 	var existRows = make(map[string]*WallDaily)
 	if err == nil {

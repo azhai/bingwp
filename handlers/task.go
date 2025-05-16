@@ -3,10 +3,9 @@ package handlers
 import (
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
-	db "github.com/azhai/bingwp/models/default"
+	"github.com/azhai/bingwp/services/database"
 	"github.com/goccy/go-json"
 )
 
@@ -16,10 +15,7 @@ const (
 
 // SaveListPages 保存列表页面
 func SaveListPages(pageCount int, pageSize int, getDetail bool) (err error) {
-	var (
-		result *ListResult
-		body   []byte
-	)
+	var result *ListResult
 	i, crawler := 1, NewCrawler()
 	if result, err = crawler.CrawlList(i, pageSize); err != nil {
 		return
@@ -27,59 +23,35 @@ func SaveListPages(pageCount int, pageSize int, getDetail bool) (err error) {
 	if pageCount < 0 {
 		pageCount = result.Response.PageCount
 	}
+	var dailyRows []*database.WallDaily
 	for i = 1; i <= pageCount; i++ {
 		url := fmt.Sprintf(ListUrl, i, pageSize)
+		var body []byte
 		if body, err = crawler.Crawl(url); err != nil {
 			continue
 		}
-
 		if err = json.Unmarshal(body, &result); err != nil {
 			fmt.Println(err)
 			continue
 		}
+		if !getDetail {
+			continue
+		}
 		for _, card := range result.Response.Data {
-			if wp := CreateDailyModel(card); wp != nil {
-				changes := map[string]any{
-					"guid":     strings.TrimSpace(wp.Guid),
-					"headline": strings.TrimSpace(wp.Headline),
-					"color":    strings.TrimSpace(wp.Color),
-				}
-				err = wp.Save(changes)
-				if err == nil && getDetail {
-					err = UpdateDailyDetail(wp, true)
-				}
+			if wp := CreateWallDaily(card); wp != nil {
+				err = UpdateDailyDetail(wp, true)
 			}
 		}
-
 		time.Sleep(10 * time.Millisecond)
 	}
+	_, err = database.InsertBatch(dailyRows)
 	return
 }
 
-// CreateDailyModel 创建一行 Daily
-func CreateDailyModel(card DailyDict) *db.WallDaily {
-	wp := &db.WallDaily{MaxDpi: "400x240"}
-	wp.BingDate = MustParseDate(card.Date)
-	wp.Id = GetOffsetDay(wp.BingDate)
-	wp.Guid, wp.Color = card.Guid, card.Color
-	if strings.HasPrefix(card.FilePath, FullUrlPrefix) {
-		wp.BingSku = GetSkuFromFullUrl(card.FilePath)
-	} else {
-		wp.BingSku = GetSkuFromBaseUrl(card.FilePath)
-	}
-	wp.Title = ParseDailyTitle(card.Title)
-	wp.Headline = strings.TrimSpace(card.Headline)
-	return wp
-}
-
 func SaveSomeDetails(limit, start int) (err error) {
-	var rows []*db.WallDaily
-	qr := db.Query().Limit(limit, start).Desc("id")
-	if err = qr.Find(&rows); err != nil {
-		fmt.Println(err)
-	}
-	for i := len(rows) - 1; i >= 0; i-- {
-		err = UpdateDailyDetail(rows[i], true)
+	dailyRows := database.GetLatestDailyRows(limit, start)
+	for i := len(dailyRows) - 1; i >= 0; i-- {
+		err = UpdateDailyDetail(dailyRows[i], true)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -87,7 +59,7 @@ func SaveSomeDetails(limit, start int) (err error) {
 	return
 }
 
-func UpdateDailyDetail(wp *db.WallDaily, override bool) (err error) {
+func UpdateDailyDetail(wp *database.WallDaily, override bool) (err error) {
 	var (
 		result  *DetailResult
 		data    *DetailDict

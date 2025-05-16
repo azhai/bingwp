@@ -1,12 +1,11 @@
 package handlers
 
 import (
+	"strconv"
 	"strings"
 	"time"
 
-	db "github.com/azhai/bingwp/models/default"
 	"github.com/azhai/bingwp/services/database"
-	xq "github.com/azhai/xgen/xquery"
 )
 
 const (
@@ -14,10 +13,7 @@ const (
 	dateZero  = "20081231"
 )
 
-var (
-	zeroUnix   = MustParseDate(dateZero).Unix()
-	dailyTable = new(db.WallDaily).TableName()
-)
+var zeroUnix = MustParseDate(dateZero).Unix()
 
 // GetOffsetDay 以2009年元旦为第一天，计算当前是多少天
 func GetOffsetDay(dt time.Time) int64 {
@@ -84,8 +80,8 @@ func CreateWallDaily(card DailyDict) *database.WallDaily {
 
 // InsertNotExistDailyRows 写入多行 Daily ，但先要排除掉已存在的行
 func InsertNotExistDailyRows(items []DailyDict, withImages bool) (num int, err error) {
-	var dailyRows, existRows []*database.WallDaily
-	dates := ""
+	var dates string
+	dailyRows := make([]*database.WallDaily, 0)
 	for _, card := range items {
 		if wp := CreateWallDaily(card); wp != nil {
 			bingDate := wp.BingDate.Format("2006-01-02")
@@ -97,21 +93,31 @@ func InsertNotExistDailyRows(items []DailyDict, withImages bool) (num int, err e
 		dates = dates[:len(dates)-2]
 	}
 	num, err = database.InsertDailyRows(dailyRows, dates)
+	if withImages {
+		err = UpdateDailyImages(dailyRows)
+	}
+	return
+}
 
-	// var dims string
-	// for _, wp := range dailyRows {
-	// 	bingDate := wp.BingDate.Format("2006-01-02")
-	// 	if id, ok := dict[bingDate]; !ok || id == 0 {
-	// 		if withImages {
-	// 			if dims, err = UpdateDailyImages(wp); dims != "" {
-	// 				wp.MaxDpi = dims
-	// 			}
-	// 		}
-	// 		rows = append(rows, wp)
-	// 	}
-	// }
-	// if num = len(rows); num > 0 {
-	// 	err = database.InsertBatch(dailyTable, rows...)
-	// }
+// UpdateDailyImages 更新壁纸的图片信息
+func UpdateDailyImages(dailyRows []*database.WallDaily) (err error) {
+	var dims, id string
+	dict := make(map[string][]string)
+	for _, wp := range dailyRows {
+		if wp == nil {
+			continue
+		}
+		if dims, err = SaveDailyImages(wp); dims != "" {
+			id, wp.MaxDpi = strconv.FormatInt(wp.Id, 10), dims
+			dict[dims] = append(dict[dims], id)
+		}
+	}
+	var ids []string
+	table := new(database.WallDaily).TableName()
+	for dims, ids = range dict {
+		where := "id IN (" + strings.Join(ids, ", ") + ")"
+		changes := map[string]any{"max_dpi": dims}
+		_, err = database.ExecUpdate(table, where, nil, changes)
+	}
 	return
 }

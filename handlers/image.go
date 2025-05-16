@@ -6,11 +6,10 @@ import (
 	"strings"
 	"time"
 
-	db "github.com/azhai/bingwp/models/default"
+	"github.com/azhai/bingwp/services/database"
 	"github.com/azhai/gozzo/cryptogy"
 	"github.com/azhai/gozzo/filesystem"
 	"github.com/azhai/gozzo/transfer"
-	xq "github.com/azhai/xgen/xquery"
 )
 
 var (
@@ -37,30 +36,6 @@ func ThumbPath(dt time.Time) string {
 	return fmt.Sprintf("thumb/%s/%s.jpg", date[:4], date)
 }
 
-func NewWallImages(id int64, img string) *db.WallImage {
-	obj := new(db.WallImage)
-	obj.DailyId, obj.FileName = id, img
-	return obj
-}
-
-func UpdateDailyImages(wp *db.WallDaily) (dims string, err error) {
-	thumbFile, imageFile := ThumbPath(wp.BingDate), ImagePath(wp.BingDate)
-	if err = FetchImages(wp.BingSku, false, thumbFile, imageFile); err != nil {
-		return
-	}
-	thumb := NewWallImages(wp.Id, thumbFile)
-	thumb.Id = thumb.DailyId*2 - 1
-	if thumb, err = LoadImageRow(thumb); err == nil {
-		_, err = UpdateImageInfo(thumb)
-	}
-	image := NewWallImages(wp.Id, imageFile)
-	image.Id = image.DailyId * 2
-	if image, err = LoadImageRow(image); err == nil {
-		dims, err = UpdateImageInfo(image)
-	}
-	return
-}
-
 func FetchImages(sku string, force bool, filenames ...string) error {
 	spec, down := "", transfer.NewDownloader(imageSaveDir, 1)
 	for _, imgFile := range filenames {
@@ -77,38 +52,40 @@ func FetchImages(sku string, force bool, filenames ...string) error {
 	return nil
 }
 
-func LoadImageRow(img *db.WallImage) (*db.WallImage, error) {
-	where := xq.WithWhere("daily_id = ? AND file_name = ?", img.DailyId, img.FileName)
-	if img.Id > 0 {
-		where = xq.WithWhere("id = ?", img.Id)
-	}
-	if exists, err := img.Load(where); !exists {
-		err = img.Save(nil)
-		return img, err
-	}
-	return img, nil
-}
-
-func UpdateImageInfo(img *db.WallImage) (dims string, err error) {
+func GetImageInfo(img *database.WallImage) error {
 	filename := filepath.Join(imageSaveDir, img.FileName)
 	fh := filesystem.File(filename)
 	if !fh.IsExist() {
-		err = fh.Error()
+		return fh.Error()
+	}
+	if img.ImgSize = fh.Size(); img.ImgSize <= 0 {
+		return fh.Error()
+	}
+	var err error
+	img.ImgWidth, img.ImgHeight = fh.GetDims()
+	img.ImgMd5, err = cryptogy.Md5File(filename)
+	return err
+}
+
+// SaveDailyImages 保存每日壁纸图片
+func SaveDailyImages(wp *database.WallDaily) (dims string, err error) {
+	thFile, imFile := ThumbPath(wp.BingDate), ImagePath(wp.BingDate)
+	if err = FetchImages(wp.BingSku, false, thFile, imFile); err != nil {
 		return
 	}
-	changes, size := make(map[string]any), int64(0)
-	if size = fh.Size(); size <= 0 {
-		err = fh.Error()
-		return
+	thumb := &database.WallImage{Id: wp.Id*2 - 1, DailyId: wp.Id}
+	image := &database.WallImage{Id: wp.Id * 2, DailyId: wp.Id}
+	thumb.FileName, image.FileName = thFile, imFile
+	if err = GetImageInfo(thumb); err == nil {
+		if _, err = database.UpsertRow(thumb); err != nil {
+			return
+		}
 	}
-	changes["img_size"] = int(size)
-	width, weight := fh.GetDims()
-	if width > 0 && weight > 0 {
-		dims = fmt.Sprintf("%dx%d", width, weight)
+	if err = GetImageInfo(image); err == nil {
+		if _, err = database.UpsertRow(image); err != nil {
+			return
+		}
 	}
-	changes["img_width"], changes["img_height"] = width, weight
-	md5, _ := cryptogy.Md5File(filename)
-	changes["img_md5"] = md5
-	err = img.Save(changes)
+	dims = fmt.Sprintf("%dx%d", image.ImgWidth, image.ImgHeight)
 	return
 }
