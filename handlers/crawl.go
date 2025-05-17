@@ -130,8 +130,8 @@ func (c *Crawler) CrawlArchive(offset int) (*ArchiveResult, error) {
 	return data, c.err
 }
 
-// SavelArchive 保存归档到数据库
-func (c *Crawler) SavelArchive(offset int, stopYmd string) (int, error) {
+// SaveArchive 保存归档到数据库
+func (c *Crawler) SaveArchive(offset int, stopYmd string) (int, error) {
 	data, err := c.CrawlArchive(offset)
 	if err != nil {
 		return 0, err

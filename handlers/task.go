@@ -34,41 +34,64 @@ func SaveListPages(pageCount int, pageSize int, getDetail bool) (err error) {
 			fmt.Println(err)
 			continue
 		}
-		if !getDetail {
-			continue
-		}
 		for _, card := range result.Response.Data {
-			if wp := CreateWallDaily(card); wp != nil {
-				err = UpdateDailyDetail(wp, true)
-			}
+			dailyRows = append(dailyRows, CreateWallDaily(card))
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	_, err = database.InsertBatch(dailyRows)
+	if len(dailyRows) > 0 {
+		dailyRows, _, err = database.InsertDailyRows(dailyRows, "")
+	}
+	if getDetail && len(dailyRows) > 0 {
+		err = UpdateDailyDetails(dailyRows)
+	}
 	return
 }
 
 func SaveSomeDetails(limit, start int) (err error) {
 	dailyRows := database.GetLatestDailyRows(limit, start)
-	for i := len(dailyRows) - 1; i >= 0; i-- {
-		err = UpdateDailyDetail(dailyRows[i], true)
-		if err != nil {
-			fmt.Println(err)
-		}
+	if len(dailyRows) > 0 {
+		err = UpdateDailyDetails(dailyRows)
 	}
 	return
 }
 
-func UpdateDailyDetail(wp *database.WallDaily, override bool) (err error) {
+func UpdateDailyDetails(dailyRows []*database.WallDaily) (err error) {
+	dailyRows = database.GetDailyNotes(dailyRows)
 	var (
-		result  *DetailResult
-		data    *DetailDict
-		body    []byte
-		crawler = NewCrawler()
+		data            *DetailDict
+		notes, noteRows []*database.WallNote
 	)
+	for i := len(dailyRows) - 1; i >= 0; i-- {
+		wp := dailyRows[i]
+		if data, err = GetDailyDetailDict(wp, true); err != nil {
+			fmt.Println(err)
+			continue
+		}
+		if notes, err = GetNotExistNotes(wp, data); err != nil {
+			fmt.Println(err)
+			continue
+		}
+		if len(notes) > 0 {
+			noteRows = append(noteRows, notes...)
+		}
+	}
+	if len(noteRows) > 0 {
+		_, err = database.InsertBatch(noteRows)
+	}
+	return
+}
+
+func GetDailyDetailDict(wp *database.WallDaily, override bool) (
+	data *DetailDict, err error) {
 	if wp.Guid == "" {
 		return
 	}
+	var (
+		result *DetailResult
+		body   []byte
+	)
+	crawler := NewCrawler()
 	path := fmt.Sprintf(SaveDetailFileName, wp.Guid)
 	if override {
 		data = crawler.CrawlDetail(wp.Guid)
@@ -82,6 +105,5 @@ func UpdateDailyDetail(wp *database.WallDaily, override bool) (err error) {
 	} else {
 		data = result.Response
 	}
-	err = WriteDetail(wp, data)
 	return
 }

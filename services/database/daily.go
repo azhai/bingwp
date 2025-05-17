@@ -1,6 +1,7 @@
 package database
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -76,5 +77,18 @@ func (ms WallDailyList) GetIds() string {
 	if len(ids) == 0 {
 		return "0"
 	}
-	return strings.Join(ids, ",")
+	return strings.Join(ids, ", ")
+}
+
+// GetDates 获取所有的主键ID
+func (ms WallDailyList) GetDates() string {
+	var dates []string
+	for _, row := range ms {
+		bingDate := row.BingDate.Format("2006-01-02")
+		dates = append(dates, fmt.Sprintf("'%s'", bingDate))
+	}
+	if len(dates) == 0 {
+		return "0"
+	}
+	return strings.Join(dates, ", ")
 }

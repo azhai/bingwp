@@ -35,7 +35,7 @@ var args struct {
 
 // ServerOpts 服务配置
 type ServerOpts struct {
-	Host     string `arg:"-s,--host" default:"" help:"运行IP"`              // 运行IP
+	Host     string `arg:"-s,--host" default:"" help:"运行IP"`                // 运行IP
 	Port     int    `arg:"-p,--port" default:"9870" help:"运行端口"`          // 运行端口
 	ImageDir string `arg:"-d,--dir" help:"图片目录" hcl:"image_dir,optional"` // 图片目录
 }
@@ -54,7 +54,7 @@ func (c *UpdateCmd) Run() {
 	// 从微软Bing下载最新的图像，以及标题
 	var err error
 	num, crawler := 0, handlers.NewCrawler()
-	if num, err = crawler.SavelArchive(0, ""); err != nil {
+	if num, err = crawler.SaveArchive(0, ""); err != nil {
 		logging.Error(err)
 	}
 

@@ -92,7 +92,7 @@ func InsertNotExistDailyRows(items []DailyDict, withImages bool) (num int, err e
 	if strings.HasSuffix(dates, ", ") {
 		dates = dates[:len(dates)-2]
 	}
-	num, err = database.InsertDailyRows(dailyRows, dates)
+	dailyRows, num, err = database.InsertDailyRows(dailyRows, dates)
 	if withImages {
 		err = UpdateDailyImages(dailyRows)
 	}

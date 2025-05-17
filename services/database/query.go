@@ -106,9 +106,12 @@ func GetDailyNotes(dailyRows []*WallDaily) []*WallDaily {
 }
 
 // InsertDailyRows 保存每日壁纸，排除已有日期的行
-func InsertDailyRows(dailyRows []*WallDaily, dates string) (int, error) {
+func InsertDailyRows(dailyRows []*WallDaily, dates string) ([]*WallDaily, int, error) {
 	model := new(WallDaily)
 	table := model.TableName()
+	if dates == "" && len(dailyRows) > 0 {
+		dates = WallDailyList(dailyRows).GetDates()
+	}
 	sql := fmt.Sprintf("SELECT * FROM %s WHERE bing_date IN (%s)", table, dates)
 	rows, err := New().Query(sql)
 	var existRows = make(map[string]*WallDaily)
@@ -123,5 +126,7 @@ func InsertDailyRows(dailyRows []*WallDaily, dates string) (int, error) {
 			newbieRows = append(newbieRows, row)
 		}
 	}
-	return InsertBatch(newbieRows)
+	var num int
+	num, err = InsertBatch(newbieRows)
+	return newbieRows, num, err
 }

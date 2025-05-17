@@ -16,10 +16,16 @@ import (
 )
 
 var (
-	dbServ     *DBServ
-	NotPtrList = errors.New("dest must be a pointer to a slice")
-	logFile    = "rotate://./logs/sql.log?cycle=daily&comp=0"
+	dbServ      *DBServ
+	NotPtrList  = errors.New("dest must be a pointer to a slice")
+	logFile     = "rotate://./logs/sql.log?cycle=daily&comp=0"
+	testLogFile = "rotate://./sql.log?cycle=daily&comp=0"
 )
+
+// IsRunTest 是否测试模式下
+func IsRunTest() bool {
+	return strings.HasSuffix(os.Args[0], ".test")
+}
 
 type NullString = sql.NullString
 type NullInt64 = sql.NullInt64
@@ -53,6 +59,9 @@ func OpenService() (*sql.DB, error) {
 	}
 	db, err := sql.Open("postgres", dsn)
 	if err == nil && db != nil {
+		if IsRunTest() {
+			logFile = testLogFile
+		}
 		logger := logging.NewLoggerURL("info", logFile)
 		loggerAdapter := zapadapter.New(logger.Desugar())
 		db = sqldblogger.OpenDriver(dsn, db.Driver(), loggerAdapter)
