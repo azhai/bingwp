@@ -116,11 +116,12 @@ func InsertDailyRows(dailyRows []*WallDaily, dates string) (int, error) {
 		err = ScanToUnique(existRows, rows)
 	}
 	CheckErr(err)
-	for i, row := range dailyRows {
+	var newbieRows []*WallDaily
+	for _, row := range dailyRows {
 		bingDate := row.BingDate.Format("2006-01-02")
-		if _, ok := existRows[bingDate]; ok {
-			dailyRows[i] = nil
+		if _, ok := existRows[bingDate]; !ok {
+			newbieRows = append(newbieRows, row)
 		}
 	}
-	return InsertBatch(dailyRows)
+	return InsertBatch(newbieRows)
 }

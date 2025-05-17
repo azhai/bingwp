@@ -132,10 +132,10 @@ func (c *Crawler) CrawlArchive(offset int, stopYmd string) (*ArchiveResult, erro
 // SavelArchive 保存归档到数据库
 func (c *Crawler) SavelArchive(offset int, stopYmd string) (int, error) {
 	data, err := c.CrawlArchive(offset, stopYmd)
-	rows := data.ToDailyListData(stopYmd)
 	if err != nil {
 		return 0, err
 	}
+	rows := data.ToDailyListData(stopYmd)
 	return InsertNotExistDailyRows(rows, true)
 }
 

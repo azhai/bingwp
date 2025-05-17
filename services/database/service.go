@@ -9,12 +9,16 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/azhai/gozzo/logging"
 	_ "github.com/lib/pq"
+	"github.com/simukti/sqldb-logger"
+	"github.com/simukti/sqldb-logger/logadapter/zapadapter"
 )
 
 var (
 	dbServ     *DBServ
 	NotPtrList = errors.New("dest must be a pointer to a slice")
+	logFile    = "rotate://./logs/sql.log?cycle=daily&comp=0"
 )
 
 type NullString = sql.NullString
@@ -48,7 +52,10 @@ func OpenService() (*sql.DB, error) {
 		dsn = "postgres://dba:pass@127.0.0.1/db_bingwp?sslmode=disable"
 	}
 	db, err := sql.Open("postgres", dsn)
-	if err == nil {
+	if err == nil && db != nil {
+		logger := logging.NewLoggerURL("info", logFile)
+		loggerAdapter := zapadapter.New(logger.Desugar())
+		db = sqldblogger.OpenDriver(dsn, db.Driver(), loggerAdapter)
 		ctx := context.Background()
 		err = db.PingContext(ctx)
 	}
@@ -96,7 +103,7 @@ type ModelChanger interface {
 }
 
 func ExecUpdate(table, where string, wargs []sql.NamedArg,
-		changes map[string]any) (int, error) {
+	changes map[string]any) (int, error) {
 	var args []sql.NamedArg
 	query := "UPDATE " + table + " SET "
 	for k, v := range changes {
@@ -158,9 +165,6 @@ func InsertBatch[T ModelChanger](rows []T) (int, error) {
 		res sql.Result
 	)
 	for _, row := range rows {
-		if row == nil {
-			continue
-		}
 		if res, err = stmt.Exec(row.RowValues()...); err != nil {
 			break
 		}
