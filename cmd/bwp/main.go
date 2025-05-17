@@ -6,7 +6,6 @@ import (
 
 	"github.com/alexflint/go-arg"
 	"github.com/azhai/bingwp/handlers"
-	"github.com/azhai/bingwp/models"
 	"github.com/azhai/gozzo/config"
 	"github.com/azhai/gozzo/logging"
 	"github.com/goccy/go-json"
@@ -102,7 +101,7 @@ func init() {
 		}
 	}
 	handlers.SetImageSaveDir(args.ImageDir)
-	models.PrepareConns(root)
+	// models.PrepareConns(root)
 	config.SetupLog(root.Log)
 	if args.Verbose {
 		fmt.Println("Config file is", args.Config)

@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/goccy/go-json"
 	"github.com/parnurzeal/gorequest"
@@ -37,8 +38,8 @@ func (r *ArchiveResult) ToDailyListData(stopYmd string) (data []DailyDict) {
 		data = append(data, DailyDict{
 			Date:     item.Date,
 			FilePath: item.FilePath,
-			Title:    item.Title,
-			Headline: item.Headline,
+			Title:    strings.TrimSpace(item.Title),
+			Headline: strings.TrimSpace(item.Headline),
 		})
 	}
 	return
@@ -118,7 +119,7 @@ func (c *Crawler) Crawl(url string) ([]byte, error) {
 }
 
 // CrawlArchive 爬取归档页面
-func (c *Crawler) CrawlArchive(offset int, stopYmd string) (*ArchiveResult, error) {
+func (c *Crawler) CrawlArchive(offset int) (*ArchiveResult, error) {
 	url := fmt.Sprintf(ArchiveUrl, offset)
 	body, err := c.Crawl(url)
 	if err != nil {
@@ -131,7 +132,7 @@ func (c *Crawler) CrawlArchive(offset int, stopYmd string) (*ArchiveResult, erro
 
 // SavelArchive 保存归档到数据库
 func (c *Crawler) SavelArchive(offset int, stopYmd string) (int, error) {
-	data, err := c.CrawlArchive(offset, stopYmd)
+	data, err := c.CrawlArchive(offset)
 	if err != nil {
 		return 0, err
 	}
