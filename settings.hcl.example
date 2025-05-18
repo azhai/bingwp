@@ -2,7 +2,7 @@ debug = false
 
 app {
     name = "BingWallPaper"
-    version = "2.0.4"
+    version = "2.0.8"
     image_dir = "./data"
 }
 
@@ -18,10 +18,11 @@ reverse "golang" {
     exclude_tables = ["*_bak", "*_test"]
 }
 
-conn "mysql" "default" {
+conn "pgsql" "default" {
     host = "127.0.0.1"
     database = "db_bingwp"
     username = "dba"
     password = "pass"
+    sslmode = "disable"
     log_file = "rotate://./logs/sql.log?cycle=daily&comp=0"
 }

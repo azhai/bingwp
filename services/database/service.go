@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/azhai/gozzo/logging"
@@ -51,6 +52,15 @@ func New() *DBServ {
 	return dbServ
 }
 
+func WithLogger(db *sql.DB, dsn string) *sql.DB {
+	if IsRunTest() {
+		logFile = testLogFile
+	}
+	logger := logging.NewLoggerURL("info", logFile)
+	loggerAdapter := zapadapter.New(logger.Desugar())
+	return sqldblogger.OpenDriver(dsn, db.Driver(), loggerAdapter)
+}
+
 // OpenService 初始化服务
 func OpenService() (*sql.DB, error) {
 	dsn := os.Getenv("DATABASE_URL")
@@ -59,12 +69,7 @@ func OpenService() (*sql.DB, error) {
 	}
 	db, err := sql.Open("postgres", dsn)
 	if err == nil && db != nil {
-		if IsRunTest() {
-			logFile = testLogFile
-		}
-		logger := logging.NewLoggerURL("info", logFile)
-		loggerAdapter := zapadapter.New(logger.Desugar())
-		db = sqldblogger.OpenDriver(dsn, db.Driver(), loggerAdapter)
+		db = WithLogger(db, dsn)
 		ctx := context.Background()
 		err = db.PingContext(ctx)
 	}
@@ -77,6 +82,16 @@ func CloseService() {
 		_ = dbServ.Close()
 		dbServ = nil
 	}
+}
+
+func RegularPlaceHolders(query string, nargs []sql.NamedArg) (string, []any) {
+	var args []any
+	for i, arg := range nargs {
+		holder := "$" + strconv.Itoa(i+1)
+		query = strings.Replace(query, "@"+arg.Name, holder, 1)
+		args = append(args, arg.Value)
+	}
+	return query, args
 }
 
 // CheckErr 检查错误
@@ -113,17 +128,19 @@ type ModelChanger interface {
 
 func ExecUpdate(table, where string, wargs []sql.NamedArg,
 	changes map[string]any) (int, error) {
-	var args []sql.NamedArg
+	var nargs []sql.NamedArg
 	query := "UPDATE " + table + " SET "
 	for k, v := range changes {
-		query += fmt.Sprintf("%s=@%s, ", k, k)
-		args = append(args, sql.Named(k, v))
+		query += fmt.Sprintf("%s = @%s, ", k, k)
+		nargs = append(nargs, sql.Named(k, v))
 	}
 	query = strings.TrimSuffix(query, ", ") + " WHERE " + where
 	if len(wargs) > 0 {
-		args = append(args, wargs...)
+		nargs = append(nargs, wargs...)
 	}
-	res, err := New().Exec(query, args)
+	var args []any
+	query, args = RegularPlaceHolders(query, nargs)
+	res, err := New().Exec(query, args...)
 	var num int64
 	if err == nil {
 		num, err = res.RowsAffected()
@@ -136,50 +153,82 @@ func UpdateRow(row ModelChanger, changes map[string]any) (int, error) {
 	cols, values := row.UniqFields()
 	var wargs []sql.NamedArg
 	for i, k := range cols {
-		where += fmt.Sprintf("%s=@_%s_ AND ", k, k)
-		kk, val := fmt.Sprintf("_%s_", k), values[i]
+		where += fmt.Sprintf("%s = @w_%s_ AND ", k, k)
+		kk, val := fmt.Sprintf("w_%s_", k), values[i]
 		wargs = append(wargs, sql.Named(kk, val))
 	}
 	where = strings.TrimSuffix(where, " AND ")
 	return ExecUpdate(table, where, wargs, changes)
 }
 
-func execInsert(row ModelChanger, query string) (bool, error) {
-	res, err := New().Exec(query, row.RowValues()...)
-	var ok bool
-	if err == nil {
-		ok, err = true, row.SetId(res.LastInsertId())
+func execInsert(row ModelChanger, stmt *sql.Stmt, query string) (bool, error) {
+	var (
+		err error
+		res sql.Result
+	)
+	args := row.RowValues()
+	if stmt != nil {
+		res, err = stmt.Exec(args...)
+		// if res != nil {
+		// 	err = row.SetId(res.LastInsertId())
+		// }
+	} else if len(query) > 0 {
+		res, err = New().Exec(query, args...)
 	}
-	return ok, err
+	if err != nil || res == nil {
+		return false, err
+	}
+	return true, err
+}
+
+func execInsertId(row ModelChanger, stmt *sql.Stmt, query string) (int64, error) {
+	var (
+		err    error
+		lastId int64
+	)
+	args := row.RowValues()
+	if stmt != nil {
+		err = stmt.QueryRow(args...).Scan(&lastId)
+	} else if len(query) > 0 {
+		err = New().QueryRow(query, args...).Scan(&lastId)
+	}
+	err = row.SetId(lastId, err)
+	return lastId, err
 }
 
 func UpsertRow(row ModelChanger) (bool, error) {
-	return execInsert(row, row.UpsertSQL())
+	return execInsert(row, nil, row.UpsertSQL())
 }
 
 func InsertRow(row ModelChanger) (bool, error) {
-	return execInsert(row, row.InsertSQL())
+	query := row.InsertSQL()
+	if !strings.Contains(query, " RETURNING ") {
+		return execInsert(row, nil, query)
+	}
+	_, err := execInsertId(row, nil, query)
+	return err == nil, err
 }
 
 func InsertBatch[T ModelChanger](rows []T) (int, error) {
 	if len(rows) == 0 {
 		return 0, nil
 	}
-	stmt, err := New().Prepare(rows[0].InsertSQL())
+	query := rows[0].InsertSQL()
+	stmt, err := New().Prepare(query)
 	if err != nil {
 		return 0, err
 	}
-	var (
-		num int
-		res sql.Result
-	)
+	num, withId := 0, strings.Contains(query, " RETURNING ")
 	for _, row := range rows {
-		if res, err = stmt.Exec(row.RowValues()...); err != nil {
+		if !withId {
+			_, err = execInsert(row, stmt, query)
+		} else {
+			_, err = execInsertId(row, stmt, query)
+		}
+		if err != nil {
 			break
 		}
-		if err = row.SetId(res.LastInsertId()); err == nil {
-			num++
-		}
+		num++
 	}
 	err = stmt.Close()
 	return num, err
