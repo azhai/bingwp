@@ -2,13 +2,49 @@ package tests
 
 import (
 	"testing"
+	"time"
 
 	"github.com/azhai/bingwp/handlers"
+	"github.com/azhai/bingwp/services/database"
+	"github.com/azhai/gozzo/config"
 	"github.com/stretchr/testify/assert"
 )
 
+var (
+	configFile   = "../settings.hcl"
+	imageSaveDir = "../data"
+	resetSqls    = []string{
+		"DELETE FROM t_wall_daily WHERE id >= $1",
+		"DELETE FROM t_wall_image WHERE daily_id >= $1",
+		"DELETE FROM t_wall_note WHERE daily_id >= $1",
+		"SELECT setval('t_wall_note_id_seq', (SELECT max(id) FROM t_wall_note WHERE daily_id < $1))",
+	}
+)
+
+// ServerOpts 服务配置
+type ServerOpts struct {
+	Host     string `arg:"-s,--host" default:"" help:"运行IP"`              // 运行IP
+	Port     int    `arg:"-p,--port" default:"9870" help:"运行端口"`          // 运行端口
+	ImageDir string `arg:"-d,--dir" help:"图片目录" hcl:"image_dir,optional"` // 图片目录
+}
+
 func init() {
-	handlers.SetImageSaveDir("../data")
+	opts := new(ServerOpts)
+	root, err := config.ReadConfigFile(configFile, nil)
+	if err == nil {
+		err = root.ParseAppRemain(opts)
+	}
+	// 设置图片保存目录
+	if err == nil && opts.ImageDir != "" {
+		imageSaveDir = opts.ImageDir
+	}
+	handlers.SetImageSaveDir(imageSaveDir)
+	// 删除最近两天的数据
+	db := database.New()
+	id := handlers.GetOffsetDay(time.Now()) - 1
+	for _, query := range resetSqls {
+		_, err = db.Exec(query, id)
+	}
 }
 
 // TestSaveArchive 从微软Bing下载最新的图像，以及标题

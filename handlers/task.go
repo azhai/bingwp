@@ -39,12 +39,14 @@ func SaveListPages(pageCount int, pageSize int, getDetail bool) (err error) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	if len(dailyRows) > 0 {
-		dailyRows, _, err = database.InsertDailyRows(dailyRows, "")
+	if len(dailyRows) == 0 {
+		return
 	}
-	if getDetail && len(dailyRows) > 0 {
-		err = UpdateDailyDetails(dailyRows)
+	_, err = database.InsertDailyRows(dailyRows, "")
+	if err != nil || !getDetail {
+		return
 	}
+	err = UpdateDailyDetails(dailyRows)
 	return
 }
 

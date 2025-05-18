@@ -49,13 +49,17 @@ func (m *WallNote) SetId(id int64, err error) error {
 	return err
 }
 
-func (m *WallNote) InsertSQL() string {
-	return "INSERT " + m.TableName() + " (daily_id, note_type, " +
+func (m *WallNote) baseInsertSQL() string {
+	return "INSERT INTO " + m.TableName() + " (daily_id, note_type, " +
 		"note_chinese, note_english) VALUES ($1, $2, $3, $4)"
 }
 
+func (m *WallNote) InsertSQL() string {
+	return m.baseInsertSQL() + " RETURNING id"
+}
+
 func (m *WallNote) UpsertSQL() string {
-	return m.InsertSQL() + " ON CONFLICT (daily_id, note_type) DO UPDATE"
+	return m.baseInsertSQL() + " ON CONFLICT (daily_id, note_type) DO NOTHING"
 }
 
 func (m *WallNote) RowValues() []any {

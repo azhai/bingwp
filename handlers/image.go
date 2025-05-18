@@ -80,12 +80,14 @@ func SaveDailyImages(wp *database.WallDaily) (dims string, err error) {
 		if _, err = database.UpsertRow(thumb); err != nil {
 			return
 		}
+		wp.Thumb = thumb
 	}
 	if err = GetImageInfo(image); err == nil {
 		if _, err = database.UpsertRow(image); err != nil {
 			return
 		}
+		wp.Image = image
 	}
-	dims = fmt.Sprintf("%dx%d", image.ImgWidth, image.ImgHeight)
+	dims = image.GeDims()
 	return
 }

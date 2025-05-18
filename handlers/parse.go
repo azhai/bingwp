@@ -64,7 +64,7 @@ func GetSkuFromFullUrl(url string) string {
 
 // CreateWallDaily 创建一行 Daily
 func CreateWallDaily(card DailyDict) *database.WallDaily {
-	wp := &database.WallDaily{MaxDpi: "400x240"}
+	wp := &database.WallDaily{MaxDpi: "0x0"}
 	wp.BingDate = MustParseDate(card.Date)
 	wp.Id = GetOffsetDay(wp.BingDate)
 	wp.Guid, wp.Color = card.Guid, card.Color
@@ -92,29 +92,30 @@ func InsertNotExistDailyRows(items []DailyDict, withImages bool) (num int, err e
 	if strings.HasSuffix(dates, ", ") {
 		dates = dates[:len(dates)-2]
 	}
-	dailyRows, num, err = database.InsertDailyRows(dailyRows, dates)
-	if withImages {
-		err = UpdateDailyImages(dailyRows)
+	num, err = database.InsertDailyRows(dailyRows, dates)
+	if err == nil && withImages {
+		err = UpdateDailyMaxDPI(dailyRows, true)
 	}
 	return
 }
 
-// UpdateDailyImages 更新壁纸的图片信息
-func UpdateDailyImages(dailyRows []*database.WallDaily) (err error) {
-	var dims, id string
+// UpdateDailyMaxDPI 更新壁纸的图片信息并回写最大分辨率
+func UpdateDailyMaxDPI(dailyRows []*database.WallDaily, saveImage bool) (err error) {
 	dict := make(map[string][]string)
 	for _, wp := range dailyRows {
-		if wp == nil {
-			continue
+		var dims, id string
+		if saveImage {
+			dims, err = SaveDailyImages(wp)
+		} else if wp.Image != nil {
+			dims = wp.Image.GeDims()
 		}
-		if dims, err = SaveDailyImages(wp); dims != "" {
+		if err == nil && dims != "" && dims != "0x0" {
 			id, wp.MaxDpi = strconv.FormatInt(wp.Id, 10), dims
 			dict[dims] = append(dict[dims], id)
 		}
 	}
-	var ids []string
 	table := new(database.WallDaily).TableName()
-	for dims, ids = range dict {
+	for dims, ids := range dict {
 		where := "id IN (" + strings.Join(ids, ", ") + ")"
 		changes := map[string]any{"max_dpi": dims}
 		_, err = database.ExecUpdate(table, where, nil, changes)

@@ -11,8 +11,7 @@ type WallImage struct {
 	ImageUrlMixin `json:",inline" db:"inline"`
 	ImgSize       int64 `json:"img_size" form:"img_size" db:"index;type:int"`
 	ImgOffset     int64 `json:"img_offset" form:"img_offset" db:"type:int"`
-	ImgWidth      int   `json:"img_width" form:"img_width" db:"type:int"`
-	ImgHeight     int   `json:"img_height" form:"img_height" db:"type:int"`
+	ImageDimMixin `json:",inline" db:"inline"`
 }
 
 // TableName WallImage的表名
@@ -52,19 +51,19 @@ func (m *WallImage) UniqFields() ([]string, []any) {
 	return []string{"id"}, []any{m.Id}
 }
 
-func (m *WallImage) SetId(_ int64, err error) error {
-	return err
+func (m *WallImage) SetId(int64, error) error {
+	return nil
 }
 
 func (m *WallImage) InsertSQL() string {
-	return "INSERT " + m.TableName() + " (id, daily_id, file_name, img_md5, " +
+	return "INSERT INTO " + m.TableName() + " (id, daily_id, file_name, img_md5, " +
 		"img_size, img_offset, img_width, img_height) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"
 }
 
 func (m *WallImage) UpsertSQL() string {
-	return m.InsertSQL() + " ON CONFLICT (id) DO UPDATE"
+	return m.InsertSQL() + " ON CONFLICT (id) DO NOTHING"
 }
 
 func (m *WallImage) RowValues() []any {
-	return []any{m.DailyId, m.FileName, m.ImgMd5, m.ImgSize, m.ImgOffset, m.ImgWidth, m.ImgHeight}
+	return []any{m.Id, m.DailyId, m.FileName, m.ImgMd5, m.ImgSize, m.ImgOffset, m.ImgWidth, m.ImgHeight}
 }

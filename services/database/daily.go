@@ -45,24 +45,24 @@ func (m *WallDaily) ScanFrom(src ScanSource, err error) error {
 }
 
 func (m *WallDaily) UniqFields() ([]string, []any) {
-	return []string{"bing_date"}, []any{m.BingDate}
+	return []string{"bing_date"}, []any{m.BingDate.Format("2006-01-02")}
 }
 
-func (m *WallDaily) SetId(_ int64, err error) error {
-	return err
+func (m *WallDaily) SetId(int64, error) error {
+	return nil
 }
 
 func (m *WallDaily) InsertSQL() string {
-	return "INSERT " + m.TableName() + " (id, guid, bing_date, bing_sku, " +
+	return "INSERT INTO " + m.TableName() + " (id, guid, bing_date, bing_sku, " +
 		"title, headline, color, max_dpi) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"
 }
 
 func (m *WallDaily) UpsertSQL() string {
-	return m.InsertSQL() + " ON CONFLICT (bing_date) DO UPDATE"
+	return m.InsertSQL() + " ON CONFLICT (bing_date) DO NOTHING"
 }
 
 func (m *WallDaily) RowValues() []any {
-	return []any{m.Guid, m.BingDate, m.BingSku, m.Title, m.Headline, m.Color, m.MaxDpi}
+	return []any{m.Id, m.Guid, m.BingDate, m.BingSku, m.Title, m.Headline, m.Color, m.MaxDpi}
 }
 
 // WallDailyList 每日壁纸列表
