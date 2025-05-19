@@ -32,3 +32,9 @@ func TestReadFirstDaily(t *testing.T) {
 	assert.Contains(t, row.Notes, "headline")
 	assert.Equal(t, row.Headline, row.Notes["headline"].NoteChinese.String)
 }
+
+func TestQueryDaily(t *testing.T) {
+	rows := database.GetLatestDailyRows(3, 0)
+	rows = database.GetDailyNotes(rows)
+	assert.NotEmpty(t, rows)
+}

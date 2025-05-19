@@ -80,17 +80,14 @@ func CreateWallDaily(card DailyDict) *database.WallDaily {
 
 // InsertNotExistDailyRows 写入多行 Daily ，但先要排除掉已存在的行
 func InsertNotExistDailyRows(items []DailyDict, withImages bool) (num int, err error) {
-	var dates string
+	var dates []any
 	dailyRows := make([]*database.WallDaily, 0)
 	for _, card := range items {
 		if wp := CreateWallDaily(card); wp != nil {
 			bingDate := wp.BingDate.Format("2006-01-02")
-			dates += "'" + bingDate + "', "
+			dates = append(dates, bingDate)
 			dailyRows = append(dailyRows, wp)
 		}
-	}
-	if strings.HasSuffix(dates, ", ") {
-		dates = dates[:len(dates)-2]
 	}
 	num, err = database.InsertDailyRows(dailyRows, dates)
 	if err == nil && withImages {

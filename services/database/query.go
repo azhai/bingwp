@@ -42,10 +42,10 @@ func (m *ImageDimMixin) GeDims() string {
 }
 
 // GetLatestDailyRows 读取最后的一些每日壁纸
-func GetLatestDailyRows(limit, start int) []*WallDaily {
+func GetLatestDailyRows(limit, offset int) []*WallDaily {
 	table := new(WallDaily).TableName()
-	tpl := "SELECT * FROM %s ORDER BY id DESC LIMIT %d OFFSET %d"
-	rows, err := New().Query(fmt.Sprintf(tpl, table, limit, start))
+	query := "SELECT * FROM " + table + " ORDER BY id DESC LIMIT $1 OFFSET $2"
+	rows, err := New().Query(query, limit, offset)
 	var dailyRows []*WallDaily
 	if err == nil {
 		err = ScanToList(&dailyRows, rows)
@@ -72,8 +72,8 @@ func GetMonthDailyRows(monthBegin, nextBegin time.Time) []*WallDaily {
 func GetDailyImages(dailyRows []*WallDaily) []*WallDaily {
 	table := new(WallImage).TableName()
 	ids := WallDailyList(dailyRows).GetIds()
-	tpl := "SELECT * FROM %s WHERE daily_id IN (%s) ORDER BY daily_id"
-	rows, err := New().Query(fmt.Sprintf(tpl, table, ids))
+	query := "SELECT * FROM  " + table + "  WHERE daily_id IN ($1) ORDER BY daily_id"
+	rows, err := New().FlattenQuery(nil, query, ids)
 	var imageRows = make(map[int64]map[string]*WallImage)
 	if err == nil {
 		err = ScanToSecondary(imageRows, rows)
@@ -100,8 +100,8 @@ func GetDailyImages(dailyRows []*WallDaily) []*WallDaily {
 func GetDailyNotes(dailyRows []*WallDaily) []*WallDaily {
 	table := new(WallNote).TableName()
 	ids := WallDailyList(dailyRows).GetIds()
-	tpl := "SELECT * FROM %s WHERE daily_id IN (%s) ORDER BY daily_id"
-	rows, err := New().Query(fmt.Sprintf(tpl, table, ids))
+	query := "SELECT * FROM  " + table + "  WHERE daily_id IN ($1) ORDER BY daily_id"
+	rows, err := New().FlattenQuery(nil, query, ids)
 	var noteRows = make(map[int64]map[string]*WallNote)
 	if err == nil {
 		err = ScanToSecondary(noteRows, rows)
@@ -117,14 +117,14 @@ func GetDailyNotes(dailyRows []*WallDaily) []*WallDaily {
 }
 
 // InsertDailyRows 保存每日壁纸，排除已有日期的行
-func InsertDailyRows(dailyRows []*WallDaily, dates string) (int, error) {
+func InsertDailyRows(dailyRows []*WallDaily, dates []any) (int, error) {
 	model := new(WallDaily)
 	table := model.TableName()
-	if dates == "" && len(dailyRows) > 0 {
+	if len(dates) == 0 && len(dailyRows) > 0 {
 		dates = WallDailyList(dailyRows).GetDates()
 	}
-	query := fmt.Sprintf("SELECT * FROM %s WHERE bing_date IN (%s)", table, dates)
-	rows, err := New().Query(query)
+	query := "SELECT * FROM " + table + " WHERE bing_date IN ($1)"
+	rows, err := New().FlattenQuery(nil, query, dates)
 	var existRows = make(map[string]*WallDaily)
 	if err == nil {
 		err = ScanToUnique(existRows, rows)

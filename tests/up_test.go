@@ -39,11 +39,14 @@ func init() {
 		imageSaveDir = opts.ImageDir
 	}
 	handlers.SetImageSaveDir(imageSaveDir)
-	// 删除最近两天的数据
+}
+
+// removeTwoDays 删除最近两天的数据
+func removeTwoDays() {
 	db := database.New()
 	id := handlers.GetOffsetDay(time.Now()) - 1
 	for _, query := range resetSqls {
-		_, err = db.Exec(query, id)
+		db.Exec(query, id)
 	}
 }
 
@@ -56,6 +59,7 @@ func TestSaveArchive(t *testing.T) {
 
 // TestSaveListPages 从wilii.cn读取guid等信息
 func TestSaveListPages(t *testing.T) {
+	removeTwoDays()
 	err := handlers.SaveListPages(1, 2, true)
 	assert.NoError(t, err)
 }

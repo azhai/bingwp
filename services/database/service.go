@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -23,9 +25,68 @@ var (
 	testLogFile = "rotate://./sql.log?cycle=daily&comp=0"
 )
 
+// CheckErr 检查错误
+func CheckErr(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
 // IsRunTest 是否测试模式下
 func IsRunTest() bool {
 	return strings.HasSuffix(os.Args[0], ".test")
+}
+
+// QuestionMarkHolders 将SQL中的顺序占位符替换为问号占位符
+func QuestionMarkHolders(query string) string {
+	re := regexp.MustCompile(`\$\d+`)
+	return re.ReplaceAllString(query, "?")
+}
+
+// FlattenPlaceHolders 将SQL中对应slice参数的顺序占位符进行扩充
+func FlattenPlaceHolders(query string, args []any) (string, []any) {
+	var (
+		pairs  []string
+		values []any
+	)
+	for i, arg := range args {
+		old := fmt.Sprintf("$%d", i+1)
+		rv := reflect.ValueOf(arg)
+		if rv.Kind() != reflect.Slice {
+			values = append(values, arg)
+			holder := "$" + strconv.Itoa(len(values))
+			if old != holder {
+				pairs = append(pairs, holder, old)
+			}
+			continue
+		}
+		var holderList []string
+		for j := 0; j < rv.Len(); j++ {
+			values = append(values, rv.Index(j).Interface())
+			holder := "$" + strconv.Itoa(len(values))
+			holderList = append(holderList, holder)
+		}
+		pairs = append(pairs, strings.Join(holderList, ", "), old)
+	}
+	slices.Reverse(pairs)
+	replacer := strings.NewReplacer(pairs...)
+	return replacer.Replace(query), values
+}
+
+// RegularNamedPlaceHolders 将SQL中的命名占位符替换为pq driver库的顺序占位符
+func RegularNamedPlaceHolders(query string, nargs []sql.NamedArg) (string, []any) {
+	var (
+		pairs  []string
+		values []any
+	)
+	for _, arg := range nargs {
+		values = append(values, arg.Value)
+		holder := "$" + strconv.Itoa(len(values))
+		pairs = append(pairs, "@"+arg.Name, holder)
+	}
+	// 注意短匹配优先 overlapping matches
+	replacer := strings.NewReplacer(pairs...)
+	return replacer.Replace(query), values
 }
 
 type NullString = sql.NullString
@@ -39,26 +100,61 @@ func NewNullString(v string) NullString {
 }
 
 type DBServ struct {
+	dsn string
 	*sql.DB
 }
 
 // New 获取数据库服务
 func New() *DBServ {
 	if dbServ == nil {
-		db, err := OpenService()
+		_, err := OpenService()
 		CheckErr(err)
-		dbServ = &DBServ{db}
 	}
 	return dbServ
 }
 
-func WithLogger(db *sql.DB, dsn string) *sql.DB {
-	if IsRunTest() {
-		logFile = testLogFile
-	}
-	logger := logging.NewLoggerURL("info", logFile)
+func (s *DBServ) WithLogger(filename string) {
+	logger := logging.NewLoggerURL("info", filename)
 	loggerAdapter := zapadapter.New(logger.Desugar())
-	return sqldblogger.OpenDriver(dsn, db.Driver(), loggerAdapter)
+	s.DB = sqldblogger.OpenDriver(s.dsn, s.DB.Driver(), loggerAdapter)
+}
+
+func (s *DBServ) FlattenExec(ctx context.Context,
+	query string, args ...any) (sql.Result, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	query, args = FlattenPlaceHolders(query, args)
+	return s.ExecContext(ctx, query, args...)
+}
+
+func (s *DBServ) FlattenQuery(ctx context.Context,
+	query string, args ...any) (*sql.Rows, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	query, args = FlattenPlaceHolders(query, args)
+	return s.QueryContext(ctx, query, args...)
+}
+
+func (s *DBServ) NamedExec(ctx context.Context,
+	query string, nargs []sql.NamedArg) (sql.Result, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	var args []any
+	query, args = RegularNamedPlaceHolders(query, nargs)
+	return s.ExecContext(ctx, query, args...)
+}
+
+func (s *DBServ) NamedQuery(ctx context.Context,
+	query string, nargs []sql.NamedArg) (*sql.Rows, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	var args []any
+	query, args = RegularNamedPlaceHolders(query, nargs)
+	return s.QueryContext(ctx, query, args...)
 }
 
 // OpenService 初始化服务
@@ -69,9 +165,13 @@ func OpenService() (*sql.DB, error) {
 	}
 	db, err := sql.Open("postgres", dsn)
 	if err == nil && db != nil {
-		db = WithLogger(db, dsn)
+		dbServ = &DBServ{DB: db, dsn: dsn}
+		if IsRunTest() {
+			logFile = testLogFile
+		}
+		dbServ.WithLogger(logFile)
 		ctx := context.Background()
-		err = db.PingContext(ctx)
+		err = dbServ.PingContext(ctx)
 	}
 	return db, err
 }
@@ -81,23 +181,6 @@ func CloseService() {
 	if dbServ != nil {
 		_ = dbServ.Close()
 		dbServ = nil
-	}
-}
-
-func RegularPlaceHolders(query string, nargs []sql.NamedArg) (string, []any) {
-	var args []any
-	for i, arg := range nargs {
-		holder := "$" + strconv.Itoa(i+1)
-		query = strings.Replace(query, "@"+arg.Name, holder, 1)
-		args = append(args, arg.Value)
-	}
-	return query, args
-}
-
-// CheckErr 检查错误
-func CheckErr(err error) {
-	if err != nil {
-		panic(err)
 	}
 }
 
@@ -130,17 +213,16 @@ func ExecUpdate(table, where string, wargs []sql.NamedArg,
 	changes map[string]any) (int, error) {
 	var nargs []sql.NamedArg
 	query := "UPDATE " + table + " SET "
-	for k, v := range changes {
-		query += fmt.Sprintf("%s = @%s, ", k, k)
-		nargs = append(nargs, sql.Named(k, v))
+	for k, val := range changes {
+		kk := fmt.Sprintf("_S_%s_", k)
+		query += fmt.Sprintf("%s = @%s, ", k, kk)
+		nargs = append(nargs, sql.Named(kk, val))
 	}
 	query = strings.TrimSuffix(query, ", ") + " WHERE " + where
 	if len(wargs) > 0 {
 		nargs = append(nargs, wargs...)
 	}
-	var args []any
-	query, args = RegularPlaceHolders(query, nargs)
-	res, err := New().Exec(query, args...)
+	res, err := New().NamedExec(nil, query, nargs)
 	var num int64
 	if err == nil {
 		num, err = res.RowsAffected()
@@ -151,10 +233,11 @@ func ExecUpdate(table, where string, wargs []sql.NamedArg,
 func UpdateRow(row ModelChanger, changes map[string]any) (int, error) {
 	table, where := row.TableName(), ""
 	cols, values := row.UniqFields()
+	// WHERE参数可能和SET参数有相同字段
 	var wargs []sql.NamedArg
 	for i, k := range cols {
-		where += fmt.Sprintf("%s = @w_%s_ AND ", k, k)
-		kk, val := fmt.Sprintf("w_%s_", k), values[i]
+		kk, val := fmt.Sprintf("_W_%s_", k), values[i]
+		where += fmt.Sprintf("%s = @%s AND ", k, kk)
 		wargs = append(wargs, sql.Named(kk, val))
 	}
 	where = strings.TrimSuffix(where, " AND ")

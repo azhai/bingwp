@@ -42,7 +42,7 @@ func SaveListPages(pageCount int, pageSize int, getDetail bool) (err error) {
 	if len(dailyRows) == 0 {
 		return
 	}
-	_, err = database.InsertDailyRows(dailyRows, "")
+	_, err = database.InsertDailyRows(dailyRows, nil)
 	if err != nil || !getDetail {
 		return
 	}

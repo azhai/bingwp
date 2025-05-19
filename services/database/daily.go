@@ -1,9 +1,6 @@
 package database
 
 import (
-	"fmt"
-	"strconv"
-	"strings"
 	"time"
 )
 
@@ -69,26 +66,26 @@ func (m *WallDaily) RowValues() []any {
 type WallDailyList []*WallDaily
 
 // GetIds 获取所有的主键ID
-func (ms WallDailyList) GetIds() string {
-	var ids []string
+func (ms WallDailyList) GetIds() (ids []any) {
 	for _, row := range ms {
-		ids = append(ids, strconv.FormatInt(row.Id, 10))
+		ids = append(ids, row.Id)
 	}
-	if len(ids) == 0 {
-		return "0"
-	}
-	return strings.Join(ids, ", ")
+	return
+	// var ids []string
+	// for _, row := range ms {
+	// 	ids = append(ids, strconv.FormatInt(row.Id, 10))
+	// }
+	// if len(ids) == 0 {
+	// 	return "0"
+	// }
+	// return strings.Join(ids, ", ")
 }
 
 // GetDates 获取所有的主键ID
-func (ms WallDailyList) GetDates() string {
-	var dates []string
+func (ms WallDailyList) GetDates() (dates []any) {
 	for _, row := range ms {
 		bingDate := row.BingDate.Format("2006-01-02")
-		dates = append(dates, fmt.Sprintf("'%s'", bingDate))
+		dates = append(dates, bingDate)
 	}
-	if len(dates) == 0 {
-		return "0"
-	}
-	return strings.Join(dates, ", ")
+	return
 }
