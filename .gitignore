@@ -3,6 +3,8 @@
 ._*
 *.bak
 *.cache
+*.csv
+*.db
 *.log
 *.lock
 *.new

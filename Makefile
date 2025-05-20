@@ -1,5 +1,5 @@
-SINGLETON =
-COMMANDS  = bwp
+SINGLETON = bwp
+COMMANDS  =
 
 
 ifndef GOAMD64
@@ -26,7 +26,7 @@ all: clean build
 
 $(SINGLETON):
 	@echo "Compile $@ ..."
-	$(GOBUILD) -o ./bin/$@ *.go
+	$(GOBUILD) -o ./bin/$@ ./
 
 $(COMMANDS):
 	@echo "Compile $@ ..."

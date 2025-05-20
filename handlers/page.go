@@ -1,14 +1,16 @@
 package handlers
 
 import (
-	"bytes"
 	"fmt"
-	"text/template"
+	"html/template"
+	"net/http"
 	"time"
 
 	"github.com/azhai/bingwp/services/database"
-	"github.com/gofiber/fiber/v3"
+	"github.com/azhai/gozzo/logging"
 )
+
+type Dict map[string]any
 
 // GetMonthBegin 获取月份的第一天零点零分
 func GetMonthBegin(t time.Time) time.Time {
@@ -30,9 +32,10 @@ func GetYearDoubleList(max, min int) (lefts, rights []int) {
 }
 
 // PageHandler 首页，按月显示壁纸
-func PageHandler(ctx fiber.Ctx) (err error) {
-	var dt = time.Now()
-	if ym := ctx.Params("month"); len(ym) >= 6 {
+func PageHandler(w http.ResponseWriter, r *http.Request) {
+	var err error
+	dt := time.Now()
+	if ym := r.PathValue("month"); len(ym) >= 6 {
 		dt, err = time.Parse("200601", ym)
 	}
 	if err != nil || dt.After(time.Now()) {
@@ -46,15 +49,16 @@ func PageHandler(ctx fiber.Ctx) (err error) {
 	}
 	year, month := dt.Year(), fmt.Sprintf("%02d", int(dt.Month()))
 	oddYears, evenYears := GetYearDoubleList(time.Now().Year(), 2009)
-	data := fiber.Map{"Year": year, "Month": month, "CurrYear": monthBegin.Year(),
+	data := Dict{"Year": year, "Month": month, "CurrYear": monthBegin.Year(),
 		"OddYears": oddYears, "EvenYears": evenYears, "Rows": rows}
-	if body, err := RenderTemplate("home.tmpl", data); err == nil {
-		return ctx.Type("html").Send(body)
+	// w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err = RenderTemplate(w, "home.tmpl", data); err != nil {
+		logging.Error(err)
+		http.Error(w, http.StatusText(500), 500)
 	}
-	return err
 }
 
-func RenderTemplate(name string, data fiber.Map) (body []byte, err error) {
+func RenderTemplate(w http.ResponseWriter, name string, data Dict) error {
 	tmpl := template.New(name).Funcs(template.FuncMap{
 		"Date": func(dt time.Time) string {
 			return dt.Format("2006-01-02")
@@ -62,9 +66,5 @@ func RenderTemplate(name string, data fiber.Map) (body []byte, err error) {
 	})
 	tmpl = template.Must(tmpl.ParseFiles("./views/" + name))
 	tmpl = template.Must(tmpl.ParseGlob("./views/sub_*.tmpl"))
-	buf := new(bytes.Buffer)
-	if err = tmpl.Execute(buf, data); err == nil {
-		body = buf.Bytes()
-	}
-	return
+	return tmpl.Execute(w, data)
 }
