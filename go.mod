@@ -7,10 +7,8 @@ toolchain go1.24.2
 require (
 	github.com/alexflint/go-arg v1.5.1
 	github.com/azhai/gozzo v1.4.4
-	github.com/azhai/xgen v1.8.6
 	github.com/goccy/go-json v0.10.5
 	github.com/gofiber/fiber/v3 v3.0.0-beta.4
-	github.com/k0kubun/pp v3.0.1+incompatible
 	github.com/lib/pq v1.10.9
 	github.com/parnurzeal/gorequest v0.3.0
 	github.com/simukti/sqldb-logger v0.0.0-20230108155151-646c1a075551
@@ -38,12 +36,11 @@ require (
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gofiber/schema v1.4.0 // indirect
 	github.com/gofiber/utils/v2 v2.0.0-beta.8 // indirect
+	github.com/golang/snappy v1.0.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/grsmv/inflect v0.0.0-20140723132642-a28d3de3b3ad // indirect
 	github.com/hashicorp/hcl/v2 v2.23.0 // indirect
 	github.com/jessevdk/go-flags v1.6.1 // indirect
-	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
@@ -51,8 +48,6 @@ require (
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mcuadros/go-version v0.0.0-20190830083331-035f6764e8d2 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
-	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
-	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/moul/http2curl v1.0.0 // indirect
 	github.com/muyo/sno v1.2.1 // indirect
 	github.com/philhofer/fwd v1.1.3-0.20240916144458-20a13a1f6b7c // indirect

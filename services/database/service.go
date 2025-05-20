@@ -75,6 +75,10 @@ func FlattenPlaceHolders(query string, args []any) (string, []any) {
 
 // RegularNamedPlaceHolders 将SQL中的命名占位符替换为pq driver库的顺序占位符
 func RegularNamedPlaceHolders(query string, nargs []sql.NamedArg) (string, []any) {
+	// 倒序排列防止短匹配优先 overlapping matches
+	slices.SortFunc(nargs, func(a, b sql.NamedArg) int {
+		return 0 - strings.Compare(a.Name, b.Name)
+	})
 	var (
 		pairs  []string
 		values []any
@@ -84,7 +88,6 @@ func RegularNamedPlaceHolders(query string, nargs []sql.NamedArg) (string, []any
 		holder := "$" + strconv.Itoa(len(values))
 		pairs = append(pairs, "@"+arg.Name, holder)
 	}
-	// 注意短匹配优先 overlapping matches
 	replacer := strings.NewReplacer(pairs...)
 	return replacer.Replace(query), values
 }
@@ -213,10 +216,9 @@ func ExecUpdate(table, where string, wargs []sql.NamedArg,
 	changes map[string]any) (int, error) {
 	var nargs []sql.NamedArg
 	query := "UPDATE " + table + " SET "
-	for k, val := range changes {
-		kk := fmt.Sprintf("_S_%s_", k)
-		query += fmt.Sprintf("%s = @%s, ", k, kk)
-		nargs = append(nargs, sql.Named(kk, val))
+	for k, v := range changes {
+		query += fmt.Sprintf("%s = @%s, ", k, k)
+		nargs = append(nargs, sql.Named(k, v))
 	}
 	query = strings.TrimSuffix(query, ", ") + " WHERE " + where
 	if len(wargs) > 0 {
@@ -236,7 +238,7 @@ func UpdateRow(row ModelChanger, changes map[string]any) (int, error) {
 	// WHERE参数可能和SET参数有相同字段
 	var wargs []sql.NamedArg
 	for i, k := range cols {
-		kk, val := fmt.Sprintf("_W_%s_", k), values[i]
+		kk, val := fmt.Sprintf("_%s", k), values[i]
 		where += fmt.Sprintf("%s = @%s AND ", k, kk)
 		wargs = append(wargs, sql.Named(kk, val))
 	}

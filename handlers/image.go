@@ -13,11 +13,8 @@ import (
 )
 
 var (
-	imageSaveDir    = ""
-	DailyIdYear2020 = 4018
-	NoPhotoWidth    = 80
-	NoPhotoSize     = 1192
-	NoPhotoMd5      = "f0f7d2c575a576fcbe5904900906e27a"
+	imageSaveDir = ""
+	NoPhotoMd5   = "f0f7d2c575a576fcbe5904900906e27a"
 )
 
 // SetImageSaveDir 设置图片保存目录

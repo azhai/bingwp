@@ -80,6 +80,7 @@ func NewApp(name, imgDir string) *fiber.App {
 		JSONDecoder: json.Unmarshal,
 	})
 	app.Use(compress.New())
+	app.Use("/favicon.ico", static.New("./static/logo-small.svg"))
 	app.Use("/static", static.New("./static"))
 	app.Get("/wallpaper/*", static.New(imgDir))
 	app.Get("/", handlers.PageHandler)
