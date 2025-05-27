@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/azhai/bingwp/services/database"
-	"github.com/azhai/gozzo/logging"
+	"github.com/azhai/allgo/logutil"
+	"github.com/azhai/bingwp/services/db"
 )
 
 type Dict map[string]any
@@ -43,9 +43,9 @@ func PageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	monthBegin := GetMonthBegin(dt)
 	nextBegin := GetMonthBegin(monthBegin.AddDate(0, 0, 31))
-	rows := database.GetMonthDailyRows(monthBegin, nextBegin)
+	rows := db.GetMonthDailyRows(monthBegin, nextBegin)
 	if len(rows) > 0 {
-		rows = database.GetDailyNotes(database.GetDailyImages(rows))
+		rows = db.GetDailyNotes(db.GetDailyImages(rows))
 	}
 	year, month := dt.Year(), fmt.Sprintf("%02d", int(dt.Month()))
 	oddYears, evenYears := GetYearDoubleList(time.Now().Year(), 2009)
@@ -53,7 +53,7 @@ func PageHandler(w http.ResponseWriter, r *http.Request) {
 		"OddYears": oddYears, "EvenYears": evenYears, "Rows": rows}
 	// w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err = RenderTemplate(w, "home.tmpl", data); err != nil {
-		logging.Error(err)
+		logutil.Error(err)
 		http.Error(w, http.StatusText(500), 500)
 	}
 }

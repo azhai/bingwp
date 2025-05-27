@@ -1,6 +1,8 @@
 
 .DS_Store
 ._*
+.env
+.env.*
 *.bak
 *.cache
 *.csv
@@ -26,5 +28,3 @@ tmp/
 vendor/
 
 db_bingwp*.sql
-settings.hcl
-xg

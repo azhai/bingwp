@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/azhai/bingwp/services/database"
+	"github.com/azhai/bingwp/services/db"
 )
 
 const (
@@ -63,8 +63,8 @@ func GetSkuFromFullUrl(url string) string {
 }
 
 // CreateWallDaily 创建一行 Daily
-func CreateWallDaily(card DailyDict) *database.WallDaily {
-	wp := &database.WallDaily{MaxDpi: "0x0"}
+func CreateWallDaily(card DailyDict) *db.WallDaily {
+	wp := &db.WallDaily{MaxDpi: "0x0"}
 	wp.BingDate = MustParseDate(card.Date)
 	wp.Id = GetOffsetDay(wp.BingDate)
 	wp.Guid, wp.Color = card.Guid, card.Color
@@ -81,7 +81,7 @@ func CreateWallDaily(card DailyDict) *database.WallDaily {
 // InsertNotExistDailyRows 写入多行 Daily ，但先要排除掉已存在的行
 func InsertNotExistDailyRows(items []DailyDict, withImages bool) (num int, err error) {
 	var dates []any
-	dailyRows := make([]*database.WallDaily, 0)
+	dailyRows := make([]*db.WallDaily, 0)
 	for _, card := range items {
 		if wp := CreateWallDaily(card); wp != nil {
 			bingDate := wp.BingDate.Format("2006-01-02")
@@ -89,7 +89,7 @@ func InsertNotExistDailyRows(items []DailyDict, withImages bool) (num int, err e
 			dailyRows = append(dailyRows, wp)
 		}
 	}
-	num, err = database.InsertDailyRows(dailyRows, dates)
+	num, err = db.InsertDailyRows(dailyRows, dates)
 	if err == nil && withImages {
 		err = UpdateDailyMaxDPI(dailyRows, true)
 	}
@@ -97,7 +97,7 @@ func InsertNotExistDailyRows(items []DailyDict, withImages bool) (num int, err e
 }
 
 // UpdateDailyMaxDPI 更新壁纸的图片信息并回写最大分辨率
-func UpdateDailyMaxDPI(dailyRows []*database.WallDaily, saveImage bool) (err error) {
+func UpdateDailyMaxDPI(dailyRows []*db.WallDaily, saveImage bool) (err error) {
 	dict := make(map[string][]string)
 	for _, wp := range dailyRows {
 		var dims, id string
@@ -111,11 +111,11 @@ func UpdateDailyMaxDPI(dailyRows []*database.WallDaily, saveImage bool) (err err
 			dict[dims] = append(dict[dims], id)
 		}
 	}
-	table := new(database.WallDaily).TableName()
+	table := new(db.WallDaily).TableName()
 	for dims, ids := range dict {
 		where := "id IN (" + strings.Join(ids, ", ") + ")"
 		changes := map[string]any{"max_dpi": dims}
-		_, err = database.ExecUpdate(table, where, nil, changes)
+		_, err = db.DB().ExecUpdate(table, where, nil, changes)
 	}
 	return
 }

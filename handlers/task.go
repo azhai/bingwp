@@ -5,7 +5,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/azhai/bingwp/services/database"
+	"github.com/azhai/allgo/dbutil"
+	"github.com/azhai/bingwp/services/db"
 	"github.com/goccy/go-json"
 )
 
@@ -23,7 +24,7 @@ func SaveListPages(pageCount int, pageSize int, getDetail bool) (err error) {
 	if pageCount < 0 {
 		pageCount = result.Response.PageCount
 	}
-	var dailyRows []*database.WallDaily
+	var dailyRows []*db.WallDaily
 	for i = 1; i <= pageCount; i++ {
 		url := fmt.Sprintf(ListUrl, i, pageSize)
 		var body []byte
@@ -42,7 +43,7 @@ func SaveListPages(pageCount int, pageSize int, getDetail bool) (err error) {
 	if len(dailyRows) == 0 {
 		return
 	}
-	_, err = database.InsertDailyRows(dailyRows, nil)
+	_, err = db.InsertDailyRows(dailyRows, nil)
 	if err != nil || !getDetail {
 		return
 	}
@@ -51,18 +52,18 @@ func SaveListPages(pageCount int, pageSize int, getDetail bool) (err error) {
 }
 
 func SaveSomeDetails(limit, start int) (err error) {
-	dailyRows := database.GetLatestDailyRows(limit, start)
+	dailyRows := db.GetLatestDailyRows(limit, start)
 	if len(dailyRows) > 0 {
 		err = UpdateDailyDetails(dailyRows)
 	}
 	return
 }
 
-func UpdateDailyDetails(dailyRows []*database.WallDaily) (err error) {
-	dailyRows = database.GetDailyNotes(dailyRows)
+func UpdateDailyDetails(dailyRows []*db.WallDaily) (err error) {
+	dailyRows = db.GetDailyNotes(dailyRows)
 	var (
 		data            *DetailDict
-		notes, noteRows []*database.WallNote
+		notes, noteRows []*db.WallNote
 	)
 	for i := len(dailyRows) - 1; i >= 0; i-- {
 		wp := dailyRows[i]
@@ -79,12 +80,12 @@ func UpdateDailyDetails(dailyRows []*database.WallDaily) (err error) {
 		}
 	}
 	if len(noteRows) > 0 {
-		_, err = database.InsertBatch(noteRows)
+		_, err = dbutil.InsertBatch(db.DB(), noteRows)
 	}
 	return
 }
 
-func GetDailyDetailDict(wp *database.WallDaily, override bool) (
+func GetDailyDetailDict(wp *db.WallDaily, override bool) (
 	data *DetailDict, err error) {
 	if wp.Guid == "" {
 		return

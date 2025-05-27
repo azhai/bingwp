@@ -5,15 +5,12 @@ import (
 	"time"
 
 	"github.com/azhai/bingwp/handlers"
-	"github.com/azhai/bingwp/services/database"
-	"github.com/azhai/gozzo/config"
+	"github.com/azhai/bingwp/services/db"
 	"github.com/stretchr/testify/assert"
 )
 
 var (
-	configFile   = "../settings.hcl"
-	imageSaveDir = "../data"
-	resetSqls    = []string{
+	resetSqls = []string{
 		"DELETE FROM t_wall_daily WHERE id >= $1",
 		"DELETE FROM t_wall_image WHERE daily_id >= $1",
 		"DELETE FROM t_wall_note WHERE daily_id >= $1",
@@ -28,22 +25,9 @@ type ServerOpts struct {
 	ImageDir string `arg:"-d,--dir" help:"图片目录" hcl:"image_dir,optional"` // 图片目录
 }
 
-func init() {
-	opts := new(ServerOpts)
-	root, err := config.ReadConfigFile(configFile, nil)
-	if err == nil {
-		err = root.ParseAppRemain(opts)
-	}
-	// 设置图片保存目录
-	if err == nil && opts.ImageDir != "" {
-		imageSaveDir = opts.ImageDir
-	}
-	handlers.SetImageSaveDir(imageSaveDir)
-}
-
 // removeTwoDays 删除最近两天的数据
 func removeTwoDays() {
-	db := database.New()
+	db := db.New()
 	id := handlers.GetOffsetDay(time.Now()) - 1
 	for _, query := range resetSqls {
 		db.Exec(query, id)

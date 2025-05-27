@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/azhai/bingwp/handlers"
-	"github.com/azhai/bingwp/services/database"
+	"github.com/azhai/bingwp/services/db"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,8 +18,8 @@ func TestReadFirstDaily(t *testing.T) {
 	nextBegin := handlers.GetMonthBegin(monthBegin.AddDate(0, 0, 31))
 	assert.Equal(t, nextBegin, time.Date(2025, 6, 1, 0, 0, 0, 0, loc))
 
-	rows := database.GetMonthDailyRows(monthBegin, nextBegin)
-	rows = database.GetDailyNotes(database.GetDailyImages(rows))
+	rows := db.GetMonthDailyRows(monthBegin, nextBegin)
+	rows = db.GetDailyNotes(db.GetDailyImages(rows))
 	assert.NotEmpty(t, rows)
 	row := rows[0]
 	assert.NotEmpty(t, row.Thumb)
@@ -34,7 +34,7 @@ func TestReadFirstDaily(t *testing.T) {
 }
 
 func TestQueryDaily(t *testing.T) {
-	rows := database.GetLatestDailyRows(3, 0)
-	rows = database.GetDailyNotes(rows)
+	rows := db.GetLatestDailyRows(3, 0)
+	rows = db.GetDailyNotes(rows)
 	assert.NotEmpty(t, rows)
 }

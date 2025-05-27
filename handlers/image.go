@@ -6,14 +6,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/azhai/bingwp/services/database"
+	"github.com/azhai/allgo/fsutil"
+	"github.com/azhai/bingwp/services/db"
 	"github.com/azhai/gozzo/cryptogy"
-	"github.com/azhai/gozzo/filesystem"
 	"github.com/azhai/gozzo/transfer"
 )
 
 var (
-	imageSaveDir = ""
+	imageSaveDir = "./data"
 	NoPhotoMd5   = "f0f7d2c575a576fcbe5904900906e27a"
 )
 
@@ -49,9 +49,9 @@ func FetchImages(sku string, force bool, filenames ...string) error {
 	return nil
 }
 
-func GetImageInfo(img *database.WallImage) error {
+func GetImageInfo(img *db.WallImage) error {
 	filename := filepath.Join(imageSaveDir, img.FileName)
-	fh := filesystem.File(filename)
+	fh := fsutil.File(filename)
 	if !fh.IsExist() {
 		return fh.Error()
 	}
@@ -65,22 +65,22 @@ func GetImageInfo(img *database.WallImage) error {
 }
 
 // SaveDailyImages 保存每日壁纸图片
-func SaveDailyImages(wp *database.WallDaily) (dims string, err error) {
+func SaveDailyImages(wp *db.WallDaily) (dims string, err error) {
 	thFile, imFile := ThumbPath(wp.BingDate), ImagePath(wp.BingDate)
 	if err = FetchImages(wp.BingSku, false, thFile, imFile); err != nil {
 		return
 	}
-	thumb := &database.WallImage{Id: wp.Id*2 - 1, DailyId: wp.Id}
-	image := &database.WallImage{Id: wp.Id * 2, DailyId: wp.Id}
+	thumb := &db.WallImage{Id: wp.Id*2 - 1, DailyId: wp.Id}
+	image := &db.WallImage{Id: wp.Id * 2, DailyId: wp.Id}
 	thumb.FileName, image.FileName = thFile, imFile
 	if err = GetImageInfo(thumb); err == nil {
-		if _, err = database.UpsertRow(thumb); err != nil {
+		if _, err = db.DB().UpsertRow(thumb); err != nil {
 			return
 		}
 		wp.Thumb = thumb
 	}
 	if err = GetImageInfo(image); err == nil {
-		if _, err = database.UpsertRow(image); err != nil {
+		if _, err = db.DB().UpsertRow(image); err != nil {
 			return
 		}
 		wp.Image = image
