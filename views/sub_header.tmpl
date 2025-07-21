@@ -26,14 +26,14 @@
           </a>
           <div class="dropdown-menu">
             <div class="dropdown-menu-columns">
-              <div class="dropdown-menu-column">
+              <div class="dropdown-narrow-column">
                 {{range .EvenYears}}
-                <a class="dropdown-item" href="/{{.}}{{$.Month}}">{{.}}</a>
+                <a class="dropdown-item" href="/{{.}}{{$.Month}}">{{.}}年</a>
                 {{end}}
               </div>
-              <div class="dropdown-menu-column">
+              <div class="dropdown-narrow-column">
                 {{range .OddYears}}
-                <a class="dropdown-item" href="/{{.}}{{$.Month}}">{{.}}</a>
+                <a class="dropdown-item" href="/{{.}}{{$.Month}}">{{.}}年</a>
                 {{end}}
               </div>
             </div>
@@ -58,21 +58,21 @@
           </a>
           <div class="dropdown-menu">
             <div class="dropdown-menu-columns">
-              <div class="dropdown-menu-column">
-                <a class="dropdown-item" href="/{{.Year}}12">12</a>
-                <a class="dropdown-item" href="/{{.Year}}10">10</a>
-                <a class="dropdown-item" href="/{{.Year}}08">8</a>
-                <a class="dropdown-item" href="/{{.Year}}06">6</a>
-                <a class="dropdown-item" href="/{{.Year}}04">4</a>
-                <a class="dropdown-item" href="/{{.Year}}02">2</a>
+              <div class="dropdown-narrow-column">
+                <a class="dropdown-item" href="/{{.Year}}12">12月</a>
+                <a class="dropdown-item" href="/{{.Year}}10">10月</a>
+                <a class="dropdown-item" href="/{{.Year}}08">08月</a>
+                <a class="dropdown-item" href="/{{.Year}}06">06月</a>
+                <a class="dropdown-item" href="/{{.Year}}04">04月</a>
+                <a class="dropdown-item" href="/{{.Year}}02">02月</a>
               </div>
-              <div class="dropdown-menu-column">
-                <a class="dropdown-item" href="/{{.Year}}11">11</a>
-                <a class="dropdown-item" href="/{{.Year}}09">9</a>
-                <a class="dropdown-item" href="/{{.Year}}07">7</a>
-                <a class="dropdown-item" href="/{{.Year}}05">5</a>
-                <a class="dropdown-item" href="/{{.Year}}03">3</a>
-                <a class="dropdown-item" href="/{{.Year}}01">1</a>
+              <div class="dropdown-narrow-column">
+                <a class="dropdown-item" href="/{{.Year}}11">11月</a>
+                <a class="dropdown-item" href="/{{.Year}}09">09月</a>
+                <a class="dropdown-item" href="/{{.Year}}07">07月</a>
+                <a class="dropdown-item" href="/{{.Year}}05">05月</a>
+                <a class="dropdown-item" href="/{{.Year}}03">03月</a>
+                <a class="dropdown-item" href="/{{.Year}}01">01月</a>
               </div>
             </div>
           </div>

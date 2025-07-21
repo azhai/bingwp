@@ -47,6 +47,14 @@ func (m *WallDaily) UniqFields() ([]string, []any) {
 	return []string{"bing_date"}, []any{m.BingDate.Format("2006-01-02")}
 }
 
+func (*WallDaily) PrimaryKey() string {
+	return "id"
+}
+
+func (m *WallDaily) GetId() int64 {
+	return m.Id
+}
+
 func (m *WallDaily) SetId(int64, error) error {
 	return nil
 }

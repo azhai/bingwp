@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/alexflint/go-arg"
@@ -64,10 +65,14 @@ func main() {
 	}
 
 	name, addr := GetAppName(), args.GetServerAddr()
-	greeting := fmt.Sprintf("Server %server is start at %server ...", name, addr)
+	greeting := fmt.Sprintf("Server %s start at %s ...", name, addr)
 	logutil.Info(greeting)
 	app := NewApp(args.ImageDir)
-	if err := SeamLess(app, addr, timeout); err != nil {
+	server := &http.Server{Addr: addr, Handler: app}
+	if err := server.ListenAndServe(); err != nil {
 		logutil.Error(err)
 	}
+	// if err := SeamLessListen(server, timeout); err != nil {
+	// 	logutil.Error(err)
+	// }
 }

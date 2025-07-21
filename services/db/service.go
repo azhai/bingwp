@@ -1,12 +1,15 @@
 package db
 
 import (
-	"context"
 	"database/sql"
 
 	"github.com/azhai/allgo/config"
 	"github.com/azhai/allgo/dbutil"
+	_ "github.com/azhai/allgo/dbutil/dialect"
+	// _ "github.com/codenotary/immudb/pkg/stdlib"
+	// _ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
+	// _ "github.com/mattn/go-sqlite3"
 )
 
 func NewNullString(v string) sql.NullString {
@@ -28,20 +31,17 @@ func DB() *dbutil.DBServ {
 
 // OpenService 初始化服务
 func OpenService(env *config.Environ) error {
-	dbType := env.GetStr("DATABASE_TYPE", "postgres")
-	dbDSN := env.Get("DATABASE_URL")
-	// fmt.Println(dbType, dbDSN)
-	db, err := sql.Open(dbType, dbDSN)
-	if err == nil && db != nil {
-		logLevel := env.GetStr("LOG_LEVEL", "info")
-		logFile := env.Get("DATABASE_LOG_FILE")
-		// fmt.Println(logLevel, logFile)
-		dbServ = &dbutil.DBServ{DB: db, DSN: dbDSN}
-		dbServ.WithLogger(logFile, logLevel)
-		ctx := context.Background()
-		err = dbServ.PingContext(ctx)
+	dbType := env.GetStr("DATABASE_TYPE")
+	dsn := env.Get("DATABASE_URL")
+	dbServ = dbutil.FromDialect(dbType, dsn)
+	err := dbServ.SetDB(sql.Open(dbServ.Type, dbServ.DSN))
+	if err != nil || dbServ.DB == nil {
+		return err
 	}
-	return err
+	if logFile := env.Get("DATABASE_LOG"); logFile != "" {
+		dbServ.WithLogger(logFile)
+	}
+	return nil
 }
 
 // CloseService 关闭服务

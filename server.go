@@ -54,13 +54,12 @@ func NewApp(imgDir string) http.Handler {
 	return app
 }
 
-func SeamLess(app http.Handler, addr string, timeout time.Duration) error {
+func SeamLessListen(server *http.Server, timeout time.Duration) error {
 	seamless.Init(pidFile)
-	listener, err := reuseport.Listen("tcp", addr)
+	listener, err := reuseport.Listen("tcp", server.Addr)
 	if err != nil {
 		return err
 	}
-	server := &http.Server{Addr: addr, Handler: app}
 
 	var errChan = make(chan error, 1)
 	// Implement the graceful shutdown that will be triggered once the new process

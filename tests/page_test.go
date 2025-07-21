@@ -18,10 +18,15 @@ func TestReadFirstDaily(t *testing.T) {
 	nextBegin := handlers.GetMonthBegin(monthBegin.AddDate(0, 0, 31))
 	assert.Equal(t, nextBegin, time.Date(2025, 6, 1, 0, 0, 0, 0, loc))
 
+	var row *db.WallDaily
 	rows := db.GetMonthDailyRows(monthBegin, nextBegin)
-	rows = db.GetDailyNotes(db.GetDailyImages(rows))
+	if len(rows) > 0 {
+		rows = db.GetDailyNotes(db.GetDailyImages(rows))
+		row = rows[0]
+	} else {
+		row = new(db.WallDaily)
+	}
 	assert.NotEmpty(t, rows)
-	row := rows[0]
 	assert.NotEmpty(t, row.Thumb)
 	assert.NotEmpty(t, row.Image)
 	assert.NotEmpty(t, row.Notes)

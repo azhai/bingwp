@@ -48,6 +48,14 @@ func (m *WallNote) UniqFields() ([]string, []any) {
 	return []string{"daily_id", "note_type"}, []any{m.DailyId, m.NoteType}
 }
 
+func (*WallNote) PrimaryKey() string {
+	return "id"
+}
+
+func (m *WallNote) GetId() int64 {
+	return m.Id
+}
+
 func (m *WallNote) SetId(id int64, err error) error {
 	if err == nil && id > 0 {
 		m.Id = id

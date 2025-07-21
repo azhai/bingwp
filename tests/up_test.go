@@ -27,10 +27,9 @@ type ServerOpts struct {
 
 // removeTwoDays 删除最近两天的数据
 func removeTwoDays() {
-	db := db.New()
 	id := handlers.GetOffsetDay(time.Now()) - 1
 	for _, query := range resetSqls {
-		db.Exec(query, id)
+		db.DB().Exec(query, id)
 	}
 }
 

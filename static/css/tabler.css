@@ -15004,6 +15004,12 @@ Card list group
   overflow-x: hidden;
 }
 
+.dropdown-narrow-column {
+  min-width: 5rem;
+}
+.dropdown-narrow-column .dropdown-item {
+  min-width: 0;
+}
 .dropdown-menu-column {
   min-width: 11rem;
 }

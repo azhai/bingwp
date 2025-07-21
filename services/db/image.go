@@ -53,6 +53,14 @@ func (m *WallImage) UniqFields() ([]string, []any) {
 	return []string{"id"}, []any{m.Id}
 }
 
+func (*WallImage) PrimaryKey() string {
+	return "id"
+}
+
+func (m *WallImage) GetId() int64 {
+	return m.Id
+}
+
 func (m *WallImage) SetId(int64, error) error {
 	return nil
 }
