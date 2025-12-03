@@ -1,9 +1,12 @@
 package main
 
 import (
+	"crypto/tls"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/alexflint/go-arg"
 	"github.com/azhai/allgo/config"
@@ -38,23 +41,21 @@ var args struct {
 func init() {
 	env = config.Prepare(256)
 	arg.MustParse(&args)
-	if args.ImageDir == "" {
-		args.ImageDir = env.Get("IMAGE_DIR")
-	} else {
-		_ = os.Setenv("IMAGE_DIR", args.ImageDir)
-	}
+	args.MergeConfigs(env)
 	if args.Verbose {
+		fmt.Println("Cert dir is", args.CertDir)
 		fmt.Println("Image dir is", args.ImageDir)
 	}
 	handlers.SetImageSaveDir(args.ImageDir)
 }
 
 func main() {
-	if err := log.OpenService(env); err != nil {
+	var err error
+	if err = log.OpenService(env); err != nil {
 		panic(err)
 	}
 	defer log.CloseService()
-	if err := db.OpenService(env); err != nil {
+	if err = db.OpenService(env); err != nil {
 		panic(err)
 	}
 	defer db.CloseService()
@@ -69,10 +70,24 @@ func main() {
 	logutil.Info(greeting)
 	app := NewApp(args.ImageDir)
 	server := &http.Server{Addr: addr, Handler: app}
-	if err := server.ListenAndServe(); err != nil {
-		logutil.Error(err)
+	if args.CertDir != "" {
+		server.TLSConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
+		certPath := filepath.Join(args.CertDir, "cert.pem")
+		keyPath := filepath.Join(args.CertDir, "key.pem")
+		err = server.ListenAndServeTLS(certPath, keyPath)
+	} else {
+		err = server.ListenAndServe()
 	}
 	// if err := SeamLessListen(server, timeout); err != nil {
 	// 	logutil.Error(err)
 	// }
+	if errors.Is(err, http.ErrServerClosed) {
+		fmt.Printf("server closed\n")
+	} else if err != nil {
+		fmt.Printf("error starting server: %s\n", err)
+		logutil.Error(err)
+		os.Exit(1)
+	}
 }

@@ -42,11 +42,11 @@ func (m *WallImage) SecondaryKey() string {
 
 // ScanFrom 从src中读取数据写入当前对象
 func (m *WallImage) ScanFrom(src dbutil.ScanSource, err error) error {
-	if err == nil {
-		err = src.Scan(&m.Id, &m.DailyId, &m.FileName,
-			&m.ImgMd5, &m.ImgSize, &m.ImgOffset, &m.ImgWidth, &m.ImgHeight)
+	if err != nil {
+		return err
 	}
-	return err
+	return src.Scan(&m.Id, &m.DailyId, &m.FileName,
+		&m.ImgMd5, &m.ImgSize, &m.ImgOffset, &m.ImgWidth, &m.ImgHeight)
 }
 
 func (m *WallImage) UniqFields() ([]string, []any) {

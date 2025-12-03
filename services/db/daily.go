@@ -36,9 +36,19 @@ func (m *WallDaily) ForeignIndex() any {
 
 // ScanFrom 从src中读取数据写入当前对象
 func (m *WallDaily) ScanFrom(src dbutil.ScanSource, err error) error {
-	if err == nil {
-		err = src.Scan(&m.Id, &m.Guid, &m.BingDate,
+	if err != nil {
+		return err
+	}
+	diaName := DB().Dialect.TypeName()
+	if diaName != "sqlite" && diaName != "turso" {
+		return src.Scan(&m.Id, &m.Guid, &m.BingDate,
 			&m.BingSku, &m.Title, &m.Headline, &m.Color, &m.MaxDpi)
+	}
+	var bingDate string
+	err = src.Scan(&m.Id, &m.Guid, &bingDate,
+		&m.BingSku, &m.Title, &m.Headline, &m.Color, &m.MaxDpi)
+	if err == nil {
+		m.BingDate, err = time.Parse("2006-01-02", bingDate)
 	}
 	return err
 }

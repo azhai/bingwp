@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/azhai/allgo/config"
 	"github.com/azhai/allgo/logutil"
 	"github.com/azhai/bingwp/handlers"
 	"github.com/kataras/compress"
@@ -22,13 +23,37 @@ var (
 
 // ServerOpts 服务配置
 type ServerOpts struct {
-	Host     string `arg:"-s,--host" default:"" help:"运行IP"`              // 运行IP
-	Port     int    `arg:"-p,--port" default:"9870" help:"运行端口"`          // 运行端口
-	ImageDir string `arg:"-d,--dir" help:"图片目录" hcl:"image_dir,optional"` // 图片目录
+	Host     string `arg:"-s,--host" default:"" help:"运行IP"`                // 运行IP
+	Port     int    `arg:"-p,--port" default:"0" help:"运行端口"`               // 运行端口
+	CertDir  string `arg:"-t,--tls" help:"TLS证书目录" hcl:"cert_dir,optional"` // TLS证书目录
+	ImageDir string `arg:"-d,--dir" help:"图片目录" hcl:"image_dir,optional"`   // 图片目录
+}
+
+// MergeConfigs 合并配置
+func (t *ServerOpts) MergeConfigs(env *config.Environ) {
+	if t.Host == "" {
+		t.Host = env.Get("HTTP_HOST")
+	}
+	if t.Port == 0 {
+		t.Port = env.GetInt("HTTP_PORT")
+	}
+	if t.CertDir == "" {
+		t.CertDir = env.Get("CERT_DIR")
+	}
+	if t.ImageDir == "" {
+		t.ImageDir = env.Get("IMAGE_DIR")
+	}
 }
 
 // GetServerAddr 获取服务地址
-func (t ServerOpts) GetServerAddr() string {
+func (t *ServerOpts) GetServerAddr() string {
+	if t.Port == 0 {
+		if t.CertDir == "" {
+			t.Port = 80
+		} else {
+			t.Port = 443
+		}
+	}
 	return fmt.Sprintf("%s:%d", t.Host, t.Port)
 }
 

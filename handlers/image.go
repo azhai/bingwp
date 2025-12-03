@@ -6,10 +6,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/azhai/allgo/crypto"
 	"github.com/azhai/allgo/fsutil"
 	"github.com/azhai/bingwp/services/db"
-	"github.com/azhai/gozzo/cryptogy"
-	"github.com/azhai/gozzo/transfer"
 )
 
 var (
@@ -34,7 +33,7 @@ func ThumbPath(dt time.Time) string {
 }
 
 func FetchImages(sku string, force bool, filenames ...string) error {
-	spec, down := "", transfer.NewDownloader(imageSaveDir, 1)
+	spec, down := "", NewDownloader(imageSaveDir, 1)
 	for _, imgFile := range filenames {
 		if strings.HasPrefix(imgFile, "thumb") {
 			spec = "_400x240"
@@ -60,7 +59,7 @@ func GetImageInfo(img *db.WallImage) error {
 	}
 	var err error
 	img.ImgWidth, img.ImgHeight = fh.GetDims()
-	img.ImgMd5, err = cryptogy.Md5File(filename)
+	img.ImgMd5, err = crypto.Md5File(filename)
 	return err
 }
 

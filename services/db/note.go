@@ -37,11 +37,11 @@ func (m *WallNote) SecondaryKey() string {
 
 // ScanFrom 从src中读取数据写入当前对象
 func (m *WallNote) ScanFrom(src dbutil.ScanSource, err error) error {
-	if err == nil {
-		err = src.Scan(&m.Id, &m.DailyId, &m.NoteType,
-			&m.NoteChinese, &m.NoteEnglish)
+	if err != nil {
+		return err
 	}
-	return err
+	return src.Scan(&m.Id, &m.DailyId, &m.NoteType,
+		&m.NoteChinese, &m.NoteEnglish)
 }
 
 func (m *WallNote) UniqFields() ([]string, []any) {
