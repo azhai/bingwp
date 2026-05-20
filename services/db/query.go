@@ -17,6 +17,14 @@ type WallDailyForeign struct {
 	Notes    map[string]*WallNote `json:"notes" form:"notes" db:"-"`
 }
 
+func (m *WallDailyForeign) HasNote(noteType string) bool {
+	if len(m.Notes) == 0 {
+		return false
+	}
+	_, ok := m.Notes[noteType]
+	return ok
+}
+
 // ImageUrlMixin 图片URL
 type ImageUrlMixin struct {
 	FileName string `json:"file_name" form:"file_name" db:"type:varchar(100)"`

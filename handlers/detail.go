@@ -6,6 +6,9 @@ import (
 
 func GetNotExistNotes(wp *db.WallDaily, data *DetailDict) (
 	notes []*db.WallNote, err error) {
+	if data == nil {
+		return
+	}
 	if wp.Notes == nil {
 		wp.Notes = make(map[string]*db.WallNote)
 	}
