@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bing Wallpaper - {{.MonthString}}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>Bing Wallpaper</h1>
+            <div class="month-nav">
+                {{if .PrevMonth}}
+                <a href="{{.PrevMonth}}" class="nav-link">← 上个月</a>
+                {{end}}
+                <span class="current-month">{{.Year}}年{{printf "%02d" .Month}}月</span>
+                {{if .NextMonth}}
+                <a href="{{.NextMonth}}" class="nav-link">下个月 →</a>
+                {{end}}
+            </div>
+        </header>
+
+        <main class="wallpaper-grid">
+            {{range .Wallpapers}}
+            <article class="wallpaper-card">
+                <div class="card-image-wrapper">
+                    <img src="/{{.LocalPath}}" alt="{{.Title}}" class="card-image" loading="lazy">
+                </div>
+                <div class="card-info">
+                    <h3 class="card-title" title="{{.Title}}">{{.Title}}</h3>
+                    <div class="card-meta">
+                        <span class="card-date">{{.Date}}</span>
+                        <span class="card-size">{{.FileSize}}</span>
+                    </div>
+                </div>
+            </article>
+            {{end}}
+        </main>
+
+        {{if not .Wallpapers}}
+        <div class="empty-state">
+            <p>该月份暂无壁纸数据</p>
+            <p>请运行 <code>./bingwp update</code> 更新数据</p>
+        </div>
+        {{end}}
+
+        <footer class="footer">
+            <p>Bing Wallpaper © 2026 | 数据来源: <a href="https://bing.npanuhin.me" target="_blank">npanuhin.me</a></p>
+        </footer>
+    </div>
+</body>
+</html>

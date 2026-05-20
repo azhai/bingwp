@@ -1,93 +1,64 @@
 package main
 
 import (
-	"crypto/tls"
-	"errors"
 	"fmt"
-	"net/http"
-	"os"
-	"path/filepath"
+	"log"
 
 	"github.com/alexflint/go-arg"
-	"github.com/azhai/allgo/config"
-	"github.com/azhai/allgo/logutil"
-	"github.com/azhai/bingwp/handlers"
-	"github.com/azhai/bingwp/services/db"
-	"github.com/azhai/bingwp/services/log"
+	"github.com/azhai/bingwp/services"
 )
-
-var (
-	env *config.Environ
-
-	appName    = "Bing Wallpaper"
-	appVersion = "0.0.0"
-)
-
-func GetAppName() string {
-	appName = env.GetStr("APP_NAME", appName)
-	appVersion = env.GetStr("APP_VERSION", appVersion)
-	if appVersion != "" && appVersion != "0.0.0" {
-		return fmt.Sprintf("%s v%s", appName, appVersion)
-	}
-	return appName
-}
 
 var args struct {
-	Update  *UpdateCmd `arg:"subcommand:up" help:"更新数据"`
-	Verbose bool       `arg:"-v,--verbose" help:"输出详细信息"`
-	ServerOpts
+	Update    *UpdateCmd  `arg:"subcommand:update" help:"更新壁纸数据"`
+	Serve     *ServeCmd   `arg:"subcommand:serve" help:"启动Web服务"`
+	ServerOpts             `arg:"embed"`
 }
 
-func init() {
-	env = config.Prepare(256)
-	arg.MustParse(&args)
-	args.MergeConfigs(env)
-	if args.Verbose {
-		fmt.Println("Cert dir is", args.CertDir)
-		fmt.Println("Image dir is", args.ImageDir)
+type ServeCmd struct{}
+
+func (c *ServeCmd) Run() {
+	dbPath := args.DBPath
+	if dbPath == "" {
+		dbPath = "./bingwp.db"
 	}
-	handlers.SetImageSaveDir(args.ImageDir)
+
+	imageDir := args.ImageDir
+	if imageDir == "" {
+		imageDir = "./images"
+	}
+
+	db, err := services.InitDB(dbPath)
+	if err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+	defer db.Close()
+
+	server := NewServer(ServerOpts{
+		Port:     args.Port,
+		DBPath:   dbPath,
+		ImageDir: imageDir,
+	}, db)
+
+	addr := server.Addr
+	fmt.Printf("🚀 Starting server at http://localhost%s\n", addr)
+	fmt.Printf("📁 Image directory: %s\n", imageDir)
+	fmt.Printf("💾 Database: %s\n", dbPath)
+
+	if err := server.ListenAndServe(); err != nil {
+		log.Fatalf("Server failed: %v", err)
+	}
 }
 
 func main() {
-	var err error
-	if err = log.OpenService(env); err != nil {
-		panic(err)
-	}
-	defer log.CloseService()
-	if err = db.OpenService(env); err != nil {
-		panic(err)
-	}
-	defer db.CloseService()
+	arg.MustParse(&args)
 
-	if args.Update != nil {
+	switch {
+	case args.Update != nil:
 		args.Update.Run()
-		return
-	}
-
-	name, addr := GetAppName(), args.GetServerAddr()
-	greeting := fmt.Sprintf("Server %s start at %s ...", name, addr)
-	logutil.Info(greeting)
-	app := NewApp(args.ImageDir)
-	server := &http.Server{Addr: addr, Handler: app}
-	if args.CertDir != "" {
-		server.TLSConfig = &tls.Config{
-			MinVersion: tls.VersionTLS12,
-		}
-		certPath := filepath.Join(args.CertDir, "cert.pem")
-		keyPath := filepath.Join(args.CertDir, "key.pem")
-		err = server.ListenAndServeTLS(certPath, keyPath)
-	} else {
-		err = server.ListenAndServe()
-	}
-	// if err := SeamLessListen(server, timeout); err != nil {
-	// 	logutil.Error(err)
-	// }
-	if errors.Is(err, http.ErrServerClosed) {
-		fmt.Printf("server closed\n")
-	} else if err != nil {
-		fmt.Printf("error starting server: %s\n", err)
-		logutil.Error(err)
-		os.Exit(1)
+	case args.Serve != nil:
+		args.Serve.Run()
+	default:
+		args.Serve = &ServeCmd{}
+		args.Serve.Run()
 	}
 }

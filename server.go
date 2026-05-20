@@ -1,115 +1,32 @@
 package main
 
 import (
-	"context"
-	"errors"
+	"database/sql"
 	"fmt"
 	"net/http"
-	"time"
 
-	"github.com/azhai/allgo/config"
-	"github.com/azhai/allgo/logutil"
 	"github.com/azhai/bingwp/handlers"
-	"github.com/kataras/compress"
-	"github.com/kavu/go_reuseport"
-	"github.com/rs/cors"
-	"github.com/rs/seamless"
 )
 
-var (
-	pidFile = "/tmp/bingwp.pid"
-	timeout = 60 * time.Second
-)
-
-// ServerOpts 服务配置
 type ServerOpts struct {
-	Host     string `arg:"-s,--host" default:"" help:"运行IP"`                // 运行IP
-	Port     int    `arg:"-p,--port" default:"0" help:"运行端口"`               // 运行端口
-	CertDir  string `arg:"-t,--tls" help:"TLS证书目录" hcl:"cert_dir,optional"` // TLS证书目录
-	ImageDir string `arg:"-d,--dir" help:"图片目录" hcl:"image_dir,optional"`   // 图片目录
+	Port     int    `arg:"-p,--port" default:"8080" help:"服务端口"`
+	DBPath   string `arg:"--db-path" help:"数据库路径"`
+	ImageDir string `arg:"--image-dir" help:"图片目录"`
 }
 
-// MergeConfigs 合并配置
-func (t *ServerOpts) MergeConfigs(env *config.Environ) {
-	if t.Host == "" {
-		t.Host = env.Get("HTTP_HOST")
-	}
-	if t.Port == 0 {
-		t.Port = env.GetInt("HTTP_PORT")
-	}
-	if t.CertDir == "" {
-		t.CertDir = env.Get("CERT_DIR")
-	}
-	if t.ImageDir == "" {
-		t.ImageDir = env.Get("IMAGE_DIR")
-	}
-}
-
-// GetServerAddr 获取服务地址
-func (t *ServerOpts) GetServerAddr() string {
-	if t.Port == 0 {
-		if t.CertDir == "" {
-			t.Port = 80
-		} else {
-			t.Port = 443
-		}
-	}
-	return fmt.Sprintf("%s:%d", t.Host, t.Port)
-}
-
-// NewApp 创建http服务
-func NewApp(imgDir string) http.Handler {
+func NewServer(opts ServerOpts, db *sql.DB) *http.Server {
 	mux := http.NewServeMux()
 
-	// add routes
-	mux.Handle("/favicon.ico", http.RedirectHandler(
-		"/static/logo-small.svg", 301,
-	))
 	mux.Handle("/static/", http.FileServer(http.Dir("./")))
-	mux.Handle("/wallpaper/", http.StripPrefix(
-		"/wallpaper/", http.FileServer(http.Dir(imgDir)),
-	))
-	mux.HandleFunc("/{month}", handlers.PageHandler)
-	mux.HandleFunc("/", handlers.PageHandler)
+	mux.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir(opts.ImageDir))))
 
-	// wrap middlewares
-	app := cors.Default().Handler(mux)
-	app = compress.Handler(mux)
-
-	return app
-}
-
-func SeamLessListen(server *http.Server, timeout time.Duration) error {
-	seamless.Init(pidFile)
-	listener, err := reuseport.Listen("tcp", server.Addr)
-	if err != nil {
-		return err
-	}
-
-	var errChan = make(chan error, 1)
-	// Implement the graceful shutdown that will be triggered once the new process
-	// successfully rebound the socket.
-	seamless.OnShutdown(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer cancel()
-		if err = server.Shutdown(ctx); err != nil {
-			logutil.Info("Graceful shutdown timeout, force closing")
-			errChan <- server.Close()
-		}
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		handlers.PageHandler(w, r, db)
 	})
 
-	go func() {
-		// Give the server a second to start
-		time.Sleep(time.Second)
-		if err == nil {
-			seamless.Started()
-			errChan <- err
-		}
-	}()
-	err = server.Serve(listener)
-	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		errChan <- err
+	addr := fmt.Sprintf(":%d", opts.Port)
+	return &http.Server{
+		Addr:    addr,
+		Handler: mux,
 	}
-	seamless.Wait()
-	return <-errChan
 }

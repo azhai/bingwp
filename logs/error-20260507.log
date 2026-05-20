@@ -1,0 +1,28 @@
+2026-05-07 18:32:50	ERROR	listen tcp 127.0.0.1:443: bind: permission denied
+github.com/azhai/allgo/logutil.Error
+	/Users/ryan/gopath/pkg/mod/github.com/azhai/allgo@v0.0.4/logutil/singleton.go:40
+main.main
+	/Users/ryan/projects/bingwp/main.go:90
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+2026-05-07 18:32:51	ERROR	listen tcp 127.0.0.1:443: bind: permission denied
+github.com/azhai/allgo/logutil.Error
+	/Users/ryan/gopath/pkg/mod/github.com/azhai/allgo@v0.0.4/logutil/singleton.go:40
+main.main
+	/Users/ryan/projects/bingwp/main.go:90
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+2026-05-07 18:32:53	ERROR	listen tcp 127.0.0.1:443: bind: permission denied
+github.com/azhai/allgo/logutil.Error
+	/Users/ryan/gopath/pkg/mod/github.com/azhai/allgo@v0.0.4/logutil/singleton.go:40
+main.main
+	/Users/ryan/projects/bingwp/main.go:90
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+2026-05-07 18:32:56	ERROR	listen tcp 127.0.0.1:443: bind: permission denied
+github.com/azhai/allgo/logutil.Error
+	/Users/ryan/gopath/pkg/mod/github.com/azhai/allgo@v0.0.4/logutil/singleton.go:40
+main.main
+	/Users/ryan/projects/bingwp/main.go:90
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290

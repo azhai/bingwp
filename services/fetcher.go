@@ -11,7 +11,7 @@ import (
 	"github.com/azhai/bingwp/models"
 )
 
-const DataAPIBaseURL = "https://bing.npanuhin.me/CN-zh.%s%s.json"
+const DataAPIBaseURL = "https://bing.npanuhin.me/CN-zh.%s.%s.json"
 
 func FetchMonthData(year, month int) ([]*models.WallpaperRaw, error) {
 	url := fmt.Sprintf(DataAPIBaseURL, fmt.Sprintf("%04d", year), fmt.Sprintf("%02d", month))

@@ -1,33 +1,129 @@
 package main
 
 import (
-	"github.com/azhai/allgo/logutil"
-	"github.com/azhai/bingwp/handlers"
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+	"time"
+
+	"github.com/azhai/bingwp/models"
+	"github.com/azhai/bingwp/services"
 )
 
-// UpdateCmd 更新数据
-type UpdateCmd struct {
+type UpdateCmd struct{}
+
+func (c *UpdateCmd) Run() {
+	dbPath := getEnvOrDefault("DB_PATH", "./bingwp.db")
+	imageDir := getEnvOrDefault("IMAGE_DIR", "./images")
+
+	log.Printf("Starting update process...")
+	log.Printf("Database path: %s", dbPath)
+	log.Printf("Image directory: %s", imageDir)
+
+	db, err := services.InitDB(dbPath)
+	if err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+	defer db.Close()
+
+	lastDate, err := services.GetLastUpdateDate(db)
+	if err != nil {
+		log.Fatalf("Failed to get last update date: %v", err)
+	}
+
+	today := time.Now()
+	startDate := parseStartDate(lastDate)
+
+	log.Printf("Updating from %s to %s...", startDate.Format("2006-01-02"), today.Format("2006-01-02"))
+
+	totalUpdated := 0
+	currentDate := startDate
+
+	for !currentDate.After(today) {
+		year, month, _ := currentDate.Date()
+
+		rawData, err := services.FetchMonthData(year, int(month))
+		if err != nil {
+			log.Printf("Warning: Failed to fetch data for %04d-%02d: %v", year, month, err)
+			currentDate = currentDate.AddDate(0, 1, 0)
+			continue
+		}
+
+		newWallpapers := filterNewData(rawData, lastDate)
+
+		for _, raw := range newWallpapers {
+			localPath := filepath.Join(imageDir, services.GenerateLocalPath(raw.Date))
+
+			if services.FileExists(localPath) {
+				fileSize := services.GetFileSize(localPath)
+				wp := services.ConvertToWallpaper(raw, fileSize)
+
+				err = services.InsertWallpaper(db, wp)
+				if err != nil {
+					log.Printf("Warning: Failed to insert record for %s: %v", raw.Date, err)
+					continue
+				}
+
+				totalUpdated++
+				log.Printf("✓ [%s] %s (cached)", raw.Date, raw.Title)
+			} else {
+				fileSize, err := services.DownloadThumbnail(raw.URL, localPath)
+				if err != nil {
+					log.Printf("Warning: Failed to download thumbnail for %s: %v", raw.Date, err)
+					continue
+				}
+
+				wp := services.ConvertToWallpaper(raw, fileSize)
+				err = services.InsertWallpaper(db, wp)
+				if err != nil {
+					log.Printf("Warning: Failed to insert record for %s: %v", raw.Date, err)
+					continue
+				}
+
+				totalUpdated++
+				log.Printf("✓ [%s] %s (%d bytes)", raw.Date, raw.Title, fileSize)
+			}
+		}
+
+		currentDate = currentDate.AddDate(0, 1, 0)
+	}
+
+	fmt.Printf("\n✅ Update completed! Total: %d new wallpapers\n", totalUpdated)
 }
 
-// Run 下载图像并记录到数据库
-func (c *UpdateCmd) Run() {
-	// 从微软Bing下载最新的图像，以及标题
-	var err error
-	num, crawler := 0, handlers.NewCrawler()
-	if num, err = crawler.SaveArchive(0, ""); err != nil {
-		logutil.Error(err)
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+func parseStartDate(lastDate string) time.Time {
+	if lastDate == "" {
+		return time.Date(2009, 1, 1, 0, 0, 0, 0, time.Local)
 	}
 
-	// 从wilii.cn读取guid等信息
-	if num < 2 {
-		num = 2
-	}
-	if err = handlers.SaveListPages(1, num, false); err != nil {
-		logutil.Error(err)
+	date, err := time.Parse("2006-01-02", lastDate)
+	if err != nil {
+		log.Printf("Warning: Invalid last date format, using default start date")
+		return time.Date(2009, 1, 1, 0, 0, 0, 0, time.Local)
 	}
 
-	// 从详情中读取正文等内容
-	if err = handlers.SaveSomeDetails(5, 1); err != nil {
-		logutil.Error(err)
+	return date
+}
+
+func filterNewData(rawData []*models.WallpaperRaw, lastDate string) []*models.WallpaperRaw {
+	if lastDate == "" {
+		return rawData
 	}
+
+	var filtered []*models.WallpaperRaw
+	for _, raw := range rawData {
+		if raw.Date > lastDate {
+			filtered = append(filtered, raw)
+		}
+	}
+
+	return filtered
 }

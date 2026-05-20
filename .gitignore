@@ -1,32 +1,31 @@
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+bin/
 
-.DS_Store
-._*
-.env
-.env.*
-*.bak
-*.cache
-*.csv
+# Test files
+test_*
 *.db
-*.db-wal
-*.log
-*.lock
-*.new
-*.old
-*.out
-*.swap
-*.swp
-*.sublime-project
-*.sublime-workspace
-*.txt
 
-.git/
+# OS files
+.DS_Store
+
+# IDE
 .idea/
 .vscode/
-bin/
-certs/
-data/image/
-data/thumb/
-tmp/
-vendor/
+.superpowers/
+.codeartsdoer/
 
-db_bingwp*.sql
+# Environment and config
+.env*
+certs/
+data/
+
+# Database dumps
+db_*.sql
+
+# Artifacts
+arts/
+logs/

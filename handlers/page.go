@@ -1,70 +1,137 @@
 package handlers
 
 import (
+	"database/sql"
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
+	"strconv"
 	"time"
 
-	"github.com/azhai/allgo/logutil"
-	"github.com/azhai/bingwp/services/db"
+	"github.com/azhai/bingwp/models"
+	"github.com/azhai/bingwp/services"
 )
 
-type Dict map[string]any
-
-// GetMonthBegin 获取月份的第一天零点零分
-func GetMonthBegin(t time.Time) time.Time {
-	yy, mm, _ := t.Date()
-	loc := t.Location()
-	return time.Date(yy, mm, 1, 0, 0, 0, 0, loc)
+type PageData struct {
+	Year        int
+	Month       int
+	MonthString string
+	Wallpapers  []*WallpaperView
+	PrevMonth   string
+	NextMonth   string
 }
 
-// GetYearDoubleList 将年份分为左右两个列表
-func GetYearDoubleList(max, min int) (lefts, rights []int) {
-	if (max-min)%2 == 0 {
-		max += 1
-	}
-	for i := max; i >= min; i -= 2 {
-		rights = append(rights, i)
-		lefts = append(lefts, i-1)
-	}
-	return
+type WallpaperView struct {
+	ID          int64
+	Date        string
+	Title       string
+	FileSize    string
+	LocalPath   string
+	Description string
 }
 
-// PageHandler 首页，按月显示壁纸
-func PageHandler(w http.ResponseWriter, r *http.Request) {
-	var err error
-	dt := time.Now()
-	if ym := r.PathValue("month"); len(ym) >= 6 {
-		dt, err = time.Parse("200601", ym)
+func PageHandler(w http.ResponseWriter, r *http.Request, db *sql.DB) {
+	now := time.Now()
+	year := now.Year()
+	month := int(now.Month())
+
+	path := r.URL.Path
+	if path != "/" && len(path) >= 8 {
+		ymStr := path[1:]
+		if len(ymStr) == 6 {
+			if y, err := strconv.Atoi(ymStr[:4]); err == nil {
+				if m, err := strconv.Atoi(ymStr[4:]); err == nil && m >= 1 && m <= 12 {
+					year = y
+					month = m
+				}
+			}
+		}
 	}
-	if err != nil || dt.After(time.Now()) {
-		dt = time.Now()
+
+	wallpapers, err := services.GetWallpapersByMonth(db, year, month)
+	if err != nil {
+		log.Printf("Error fetching wallpapers: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
 	}
-	monthBegin := GetMonthBegin(dt)
-	nextBegin := GetMonthBegin(monthBegin.AddDate(0, 0, 31))
-	rows := db.GetMonthDailyRows(monthBegin, nextBegin)
-	if len(rows) > 0 {
-		rows = db.GetDailyNotes(db.GetDailyImages(rows))
+
+	views := convertToViews(wallpapers)
+
+	data := PageData{
+		Year:        year,
+		Month:       month,
+		MonthString: fmt.Sprintf("%04d-%02d", year, month),
+		Wallpapers:  views,
+		PrevMonth:   getPrevMonth(year, month),
+		NextMonth:   getNextMonth(year, month, now),
 	}
-	year, month := dt.Year(), fmt.Sprintf("%02d", int(dt.Month()))
-	oddYears, evenYears := GetYearDoubleList(time.Now().Year(), 2009)
-	data := Dict{"Year": year, "Month": month, "CurrYear": monthBegin.Year(),
-		"OddYears": oddYears, "EvenYears": evenYears, "Rows": rows}
-	// w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err = RenderTemplate(w, "home.tmpl", data); err != nil {
-		logutil.Error(err)
-		http.Error(w, http.StatusText(500), 500)
-	}
+
+	renderTemplate(w, "index.html", data)
 }
 
-func RenderTemplate(w http.ResponseWriter, name string, data Dict) error {
-	tmpl := template.New(name).Funcs(template.FuncMap{
-		"Date": func(dt time.Time) string {
-			return dt.Format("2006-01-02")
-		},
-	})
-	tmpl = template.Must(tmpl.ParseFiles("./views/" + name))
-	tmpl = template.Must(tmpl.ParseGlob("./views/sub_*.tmpl"))
-	return tmpl.Execute(w, data)
+func convertToViews(wallpapers []*models.Wallpaper) []*WallpaperView {
+	var views []*WallpaperView
+	for _, wp := range wallpapers {
+		view := &WallpaperView{
+			ID:          wp.ID,
+			Date:        wp.Date.Format("2006-01-02"),
+			Title:       wp.Title,
+			FileSize:    formatFileSize(wp.FileSize),
+			LocalPath:   wp.LocalPath,
+			Description: truncateDescription(wp.Description, 100),
+		}
+		views = append(views, view)
+	}
+	return views
+}
+
+func formatFileSize(size int64) string {
+	const unit = 1024
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
+	}
+	div, exp := int64(unit), 0
+	for n := size / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
+}
+
+func truncateDescription(desc string, maxLen int) string {
+	if len(desc) <= maxLen {
+		return desc
+	}
+	return desc[:maxLen] + "..."
+}
+
+func getPrevMonth(year, month int) string {
+	if month == 1 {
+		return fmt.Sprintf("/%04d%02d", year-1, 12)
+	}
+	return fmt.Sprintf("/%04d%02d", year, month-1)
+}
+
+func getNextMonth(year, month int, now time.Time) string {
+	next := time.Date(year, time.Month(month+1), 1, 0, 0, 0, 0, now.Location())
+	if next.After(now) {
+		return ""
+	}
+	return fmt.Sprintf("/%04d%02d", next.Year(), next.Month())
+}
+
+func renderTemplate(w http.ResponseWriter, name string, data interface{}) {
+	tmpl, err := template.ParseFiles("./views/" + name)
+	if err != nil {
+		log.Printf("Error parsing template: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	err = tmpl.Execute(w, data)
+	if err != nil {
+		log.Printf("Error executing template: %v", err)
+	}
 }

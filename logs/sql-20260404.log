@@ -1,0 +1,3 @@
+2026-04-04 08:04:57	INFO	QueryContext	{"time": 1775261097, "duration": 1.129583, "conn_id": "4s8u_eaaesWwIUmM", "query": "SELECT * FROM t_wall_daily WHERE bing_date >= $1 AND bing_date < $2 ORDER BY id", "args": ["2026-04-01","2026-05-01"]}
+2026-04-04 08:04:57	INFO	QueryContext	{"time": 1775261097, "duration": 0.547666, "conn_id": "4s8u_eaaesWwIUmM", "query": "SELECT * FROM  t_wall_image  WHERE daily_id IN ($1, $2, $3, $4) ORDER BY daily_id", "args": [6300,6301,6302,6303]}
+2026-04-04 08:04:57	INFO	QueryContext	{"args": [6300,6301,6302,6303], "time": 1775261097, "duration": 0.617208, "conn_id": "4s8u_eaaesWwIUmM", "query": "SELECT * FROM  t_wall_note  WHERE daily_id IN ($1, $2, $3, $4) ORDER BY daily_id"}
