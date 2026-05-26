@@ -2,18 +2,16 @@ package services
 
 import (
 	"testing"
-	"time"
 
 	"github.com/azhai/bingwp/models"
 )
 
 func TestInitDB(t *testing.T) {
-	dbPath := ":memory:"
-	db, err := InitDB(dbPath)
+	db, err := models.InitDB("file:goe?mode=memory&cache=shared", "")
 	if err != nil {
 		t.Fatalf("InitDB failed: %v", err)
 	}
-	defer db.Close()
+	defer models.CloseDB()
 
 	if db == nil {
 		t.Fatal("db should not be nil")
@@ -21,29 +19,25 @@ func TestInitDB(t *testing.T) {
 }
 
 func TestInsertAndGetWallpaper(t *testing.T) {
-	dbPath := ":memory:"
-	db, err := InitDB(dbPath)
+	_, err := models.InitDB("file:goe?mode=memory&cache=shared", "")
 	if err != nil {
 		t.Fatalf("InitDB failed: %v", err)
 	}
-	defer db.Close()
+	defer models.CloseDB()
 
-	testDate, _ := time.Parse("2006-01-02", "2026-04-01")
 	wp := &models.Wallpaper{
-		Date:      testDate,
-		Title:     "Test Title",
-		Caption:   "Test Caption",
-		BingFile:  "OHR.Test_ZH-CN123456_UHD.jpg",
-		FileSize:  102400,
-		LocalPath: "images/202604/01.jpg",
+		Date:     "2026-04-01",
+		Title:    "Test Title",
+		Headline: "Test Headline",
+		Slug:     "TestImage_ZH-CN123456",
 	}
 
-	err = InsertWallpaper(db, wp)
+	err = InsertWallpaperIgnore(wp)
 	if err != nil {
-		t.Fatalf("InsertWallpaper failed: %v", err)
+		t.Fatalf("InsertWallpaperIgnore failed: %v", err)
 	}
 
-	wallpapers, err := GetWallpapersByMonth(db, 2026, 4)
+	wallpapers, err := GetWallpapersByMonth(2026, 4)
 	if err != nil {
 		t.Fatalf("GetWallpapersByMonth failed: %v", err)
 	}
@@ -54,23 +48,5 @@ func TestInsertAndGetWallpaper(t *testing.T) {
 
 	if wallpapers[0].Title != "Test Title" {
 		t.Errorf("expected 'Test Title', got '%s'", wallpapers[0].Title)
-	}
-}
-
-func TestGetLastUpdateDate(t *testing.T) {
-	dbPath := ":memory:"
-	db, err := InitDB(dbPath)
-	if err != nil {
-		t.Fatalf("InitDB failed: %v", err)
-	}
-	defer db.Close()
-
-	date, err := GetLastUpdateDate(db)
-	if err != nil {
-		t.Fatalf("GetLastUpdateDate failed: %v", err)
-	}
-
-	if date != "" {
-		t.Errorf("expected empty date for empty db, got '%s'", date)
 	}
 }

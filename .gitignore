@@ -20,12 +20,16 @@ test_*
 
 # Environment and config
 .env*
+bin/
 certs/
 data/
+docs/
+images/
+thumbs/
 
 # Database dumps
+*.log
 db_*.sql
 
 # Artifacts
-arts/
 logs/

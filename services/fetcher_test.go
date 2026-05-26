@@ -4,19 +4,30 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/azhai/bingwp/models"
 )
 
-func TestFetchMonthData(t *testing.T) {
-	testData := `[{
-		"title": "Test Wallpaper",
-		"caption": "Test Caption",
-		"subtitle": "Test Subtitle",
-		"copyright": "© Test",
-		"description": "Test Description",
-		"date": "2026-04-01",
-		"bing_url": "https://bing.com/th?id=OHR.Test_ZH-CN123456_UHD.jpg",
-		"url": "https://example.com/thumb.jpg"
-	}]`
+func TestFetchPageData(t *testing.T) {
+	testData := `{
+		"status": 200,
+		"success": true,
+		"msg": "获取成功",
+		"response": {
+			"page": 1,
+			"pageCount": 124,
+			"dataCount": 6154,
+			"pageSize": 2,
+			"data": [{
+				"guid": "f38f7830c1",
+				"date": "2026-05-20",
+				"title": "Test Wallpaper",
+				"copyright": "© Test Author",
+				"headline": "Test Headline",
+				"filepath": "/path/to/BumbleBee_ZH-CN6429376340_1920x1080.jpg"
+			}]
+		}
+	}`
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -24,56 +35,102 @@ func TestFetchMonthData(t *testing.T) {
 	}))
 	defer server.Close()
 
-	data, err := FetchMonthDataFromURL(server.URL)
+	result, err := FetchPageData(1, 2)
 	if err != nil {
-		t.Fatalf("FetchMonthData failed: %v", err)
+		t.Fatalf("FetchPageData failed: %v", err)
 	}
 
-	if len(data) != 1 {
-		t.Errorf("expected 1 item, got %d", len(data))
+	if len(result.Response.Data) != 1 {
+		t.Errorf("expected 1 item, got %d", len(result.Response.Data))
 	}
 
-	if data[0].Title != "Test Wallpaper" {
-		t.Errorf("expected 'Test Wallpaper', got '%s'", data[0].Title)
+	if result.Response.Data[0].GUID != "f38f7830c1" {
+		t.Errorf("expected GUID 'f38f7830c1', got '%s'", result.Response.Data[0].GUID)
 	}
 }
 
-func TestExtractBingFile(t *testing.T) {
+func TestExtractSlug(t *testing.T) {
 	tests := []struct {
 		input    string
 		expected string
 	}{
 		{
-			input:    "https://bing.com/th?id=OHR.JapaneseTreeFrog_ZH-CN6467379766_UHD.jpg",
-			expected: "OHR.JapaneseTreeFrog_ZH-CN6467379766_UHD.jpg",
+			input:    "https://bing.wilii.cn/OneDrive/bingimages/2026/05/20/BumbleBee_ZH-CN6429376340_1920x1080.jpg",
+			expected: "BumbleBee_ZH-CN6429376340",
 		},
 		{
-			input:    "invalid-url",
+			input:    "https://bing.wilii.cn/OneDrive/bingimages/2026/05/20/OHR.TestImage_ZH-CN123_1920x1080.jpg",
+			expected: "TestImage_ZH-CN123",
+		},
+		{
+			input:    "",
 			expected: "",
 		},
 	}
 
 	for _, tt := range tests {
-		result := ExtractBingFile(tt.input)
+		result := ExtractSlug(tt.input)
 		if result != tt.expected {
-			t.Errorf("ExtractBingFile(%q) = %q, want %q", tt.input, result, tt.expected)
+			t.Errorf("ExtractSlug(%q) = %q, want %q", tt.input, result, tt.expected)
 		}
 	}
 }
 
-func TestGenerateLocalPath(t *testing.T) {
+func TestExtractResolution(t *testing.T) {
 	tests := []struct {
-		date     string
+		input    string
 		expected string
 	}{
-		{"2026-04-01", "images/202604/01.jpg"},
-		{"2026-12-31", "images/202612/31.jpg"},
+		{
+			input:    "https://bing.wilii.cn/OneDrive/bingimages/2026/05/20/BumbleBee_ZH-CN6429376340_1920x1080.jpg",
+			expected: "1920x1080",
+		},
+		{
+			input:    "/path/to/Image_ZH-CN123_800x480.jpg",
+			expected: "800x480",
+		},
+		{
+			input:    "/path/to/Image_ZH-CN123.jpg",
+			expected: "",
+		},
+		{
+			input:    "",
+			expected: "",
+		},
 	}
 
 	for _, tt := range tests {
-		result := GenerateLocalPath(tt.date)
+		result := ExtractResolution(tt.input)
 		if result != tt.expected {
-			t.Errorf("GenerateLocalPath(%q) = %q, want %q", tt.date, result, tt.expected)
+			t.Errorf("ExtractResolution(%q) = %q, want %q", tt.input, result, tt.expected)
 		}
+	}
+}
+
+func TestConvertToWallpaper(t *testing.T) {
+	raw := &models.WallpaperRaw{
+		GUID:      "test123",
+		Date:      "2026-05-20",
+		Title:     "Test Title",
+		Copyright: "© Author",
+		Headline:  "Test Headline",
+		Filepath:  "/path/TestImage_ZH-CN123_1920x1080.jpg",
+	}
+
+	wp := ConvertToWallpaper(raw)
+	if wp.Title != "Test Title" {
+		t.Errorf("expected 'Test Title', got '%s'", wp.Title)
+	}
+
+	if wp.Headline != "Test Headline" {
+		t.Errorf("expected 'Test Headline', got '%s'", wp.Headline)
+	}
+
+	if wp.Slug != "TestImage_ZH-CN123" {
+		t.Errorf("expected 'TestImage_ZH-CN123', got '%s'", wp.Slug)
+	}
+
+	if wp.ImageDPI != "1920x1080" {
+		t.Errorf("expected '1920x1080', got '%s'", wp.ImageDPI)
 	}
 }

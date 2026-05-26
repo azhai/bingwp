@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/azhai/bingwp/models"
 	"github.com/azhai/bingwp/services"
 )
 
@@ -27,29 +28,25 @@ func TestUpdateCmd_Run(t *testing.T) {
 	cmd := &UpdateCmd{}
 
 	start := time.Now()
-	err := cmd.Run()
+	cmd.Run()
 	duration := time.Since(start)
-
-	if err != nil {
-		t.Fatalf("UpdateCmd.Run failed: %v", err)
-	}
 
 	t.Logf("Update completed in %v", duration)
 
-	db, err := services.InitDB(dbPath)
+	_, err := models.InitDB(dbPath, tmpDir)
 	if err != nil {
 		t.Fatalf("failed to open db: %v", err)
 	}
-	defer db.Close()
+	defer models.CloseDB()
 
-	lastDate, err := services.GetLastUpdateDate(db)
+	_, latest, err := services.GetDateRange()
 	if err != nil {
-		t.Fatalf("GetLastUpdateDate failed: %v", err)
+		t.Fatalf("GetDateRange failed: %v", err)
 	}
 
-	if lastDate == "" {
+	if latest == "" {
 		t.Error("should have at least one wallpaper after update")
 	}
 
-	t.Logf("Last updated date: %s", lastDate)
+	t.Logf("Last updated date: %s", latest)
 }

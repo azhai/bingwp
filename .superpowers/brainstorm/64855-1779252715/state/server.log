@@ -1,5 +1,0 @@
-{"type":"server-started","port":50737,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:50737","screen_dir":"/Users/ryan/projects/bingwp/.superpowers/brainstorm/64855-1779252715/content","state_dir":"/Users/ryan/projects/bingwp/.superpowers/brainstorm/64855-1779252715/state"}
-{"type":"screen-added","file":"/Users/ryan/projects/bingwp/.superpowers/brainstorm/64855-1779252715/content/layout-style.html"}
-{"type":"server-stopped","reason":"owner process exited"}
-{"source":"user-event","type":"click","text":"A\n    \n      瀑布流网格 (推荐)\n      \n        \n          \n            \n            \n            \n            \n            \n            \n            \n            \n          \n        \n      \n      响应式网格布局，自动适应屏幕宽度，图片等比缩放","choice":"grid","id":null,"timestamp":1779252818519}
-{"source":"user-event","type":"click","text":"A\n    \n      瀑布流网格 (推荐)\n      \n        \n          \n            \n            \n            \n            \n            \n            \n            \n            \n          \n        \n      \n      响应式网格布局，自动适应屏幕宽度，图片等比缩放","choice":"grid","id":null,"timestamp":1779252833705}

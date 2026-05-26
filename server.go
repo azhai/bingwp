@@ -1,30 +1,37 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
+	"io/fs"
 	"net/http"
 
 	"github.com/azhai/bingwp/handlers"
+	"github.com/azhai/bingwp/services"
 )
 
-type ServerOpts struct {
-	Port     int    `arg:"-p,--port" default:"8080" help:"服务端口"`
-	DBPath   string `arg:"--db-path" help:"数据库路径"`
-	ImageDir string `arg:"--image-dir" help:"图片目录"`
-}
-
-func NewServer(opts ServerOpts, db *sql.DB) *http.Server {
+func NewServer(conf *services.Config) *http.Server {
 	mux := http.NewServeMux()
 
-	mux.Handle("/static/", http.FileServer(http.Dir("./")))
-	mux.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir(opts.ImageDir))))
+	// Static files (embedded)
+	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
 
+	// Thumbnail images
+	mux.Handle("/thumbs/", http.StripPrefix("/thumbs/", http.FileServer(http.Dir(conf.ThumbDir))))
+
+	// Image files
+	mux.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir(conf.ImageDir))))
+
+	// API endpoint
+	mux.HandleFunc("/api/wallpapers", handlers.APIWallpapersHandler)
+
+	// SPA: all other routes serve the embedded index page
+	indexHTML, _ := fs.ReadFile(viewsFS, "index.html")
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		handlers.PageHandler(w, r, db)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write(indexHTML)
 	})
 
-	addr := fmt.Sprintf(":%d", opts.Port)
+	addr := fmt.Sprintf("%s:%d", conf.Host, conf.Port)
 	return &http.Server{
 		Addr:    addr,
 		Handler: mux,
