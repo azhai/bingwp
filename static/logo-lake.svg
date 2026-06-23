@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#F0F7FA"/>
+  <rect width="64" height="64" rx="14" fill="transparent"/>
   <defs>
     <clipPath id="cube">
       <path d="M32 3 L56 17 L56 47 L32 61 L8 47 L8 17Z"/>
