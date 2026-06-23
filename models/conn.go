@@ -6,44 +6,48 @@ import (
 	"fmt"
 
 	"github.com/azhai/goent"
-	"github.com/azhai/goent/drivers/sqlite"
-	"github.com/azhai/goent/utils"
+	"github.com/azhai/goent/drivers"
 )
 
-// Database is the database connection with its driver.
+var (
+	db     *Database
+	initDb = false
+)
+
+// Database represents the database connection.
 type Database struct {
-	DefaultSchema
+	PublicSchema `goe:"public;prefix:t_"`
 	*goent.DB
 }
 
-var db *Database
-
-// GetDB returns the database connection
 func GetDB() *Database {
 	return db
 }
 
-// InitDB opens a database connection and auto-migrates the schema
-func InitDB(dbPath, logFile string) (*Database, error) {
-	_ = utils.MakeDirForFile(dbPath)
-	drv := sqlite.OpenDSN(dbPath)
-	ent, err := goent.Open[Database](drv, logFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
+func CloseDB() {
+	if db != nil {
+		_ = goent.Close(db)
 	}
-
-	if err = goent.AutoMigrate(ent); err != nil {
-		return nil, fmt.Errorf("failed to migrate database: %w", err)
-	}
-
-	db = ent
-	return ent, nil
 }
 
-// CloseDB closes the database connection
-func CloseDB() error {
-	if db != nil {
-		return goent.Close(db)
+func SetAutoMigrate(auto bool) {
+	initDb = auto
+}
+
+func OpenDB(cfg drivers.DatabaseConfig) (*Database, error) {
+	drv, err := drivers.Connect(cfg)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	db, err = goent.Open[Database](drv)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to connect database: %v", err)
+	}
+	if initDb {
+		err = goent.AutoMigrate(db)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("Failed to migrate database: %v", err)
+	}
+	return db, nil
 }

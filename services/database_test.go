@@ -4,12 +4,20 @@ import (
 	"testing"
 
 	"github.com/azhai/bingwp/models"
+	"github.com/azhai/goent/drivers"
 )
 
+func testDBConfig() drivers.DatabaseConfig {
+	return drivers.DatabaseConfig{
+		Type: "sqlite",
+		DSN:  "file:goe?mode=memory&cache=shared",
+	}
+}
+
 func TestInitDB(t *testing.T) {
-	db, err := models.InitDB("file:goe?mode=memory&cache=shared", "")
+	db, err := models.OpenDB(testDBConfig())
 	if err != nil {
-		t.Fatalf("InitDB failed: %v", err)
+		t.Fatalf("OpenDB failed: %v", err)
 	}
 	defer models.CloseDB()
 
@@ -19,9 +27,10 @@ func TestInitDB(t *testing.T) {
 }
 
 func TestInsertAndGetWallpaper(t *testing.T) {
-	_, err := models.InitDB("file:goe?mode=memory&cache=shared", "")
+	models.SetAutoMigrate(true)
+	_, err := models.OpenDB(testDBConfig())
 	if err != nil {
-		t.Fatalf("InitDB failed: %v", err)
+		t.Fatalf("OpenDB failed: %v", err)
 	}
 	defer models.CloseDB()
 

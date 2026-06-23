@@ -8,6 +8,7 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -36,6 +37,7 @@ const (
 	ThumbnailHeight        = 240
 	ThumbnailWidth         = 400
 	MinThumbnailSize int64 = 1024
+	MaxDownloadRetry       = 2
 )
 
 // ============================================================
@@ -90,36 +92,37 @@ func FetchPageData(page, pageSize int) (*models.WiliiListResponse, error) {
 	return &result, nil
 }
 
-// FetchDetailData fetches the description for a wallpaper by GUID
-func FetchDetailData(guid string) (string, error) {
+// FetchDetailData fetches the detail data for a wallpaper by GUID.
+// Returns all fields (title, headline, copyright, description, filepath) for backfilling.
+func FetchDetailData(guid string) (*models.DetailData, error) {
 	url := fmt.Sprintf(DetailAPIURL, guid)
 	client := &http.Client{Timeout: 30 * time.Second}
 
 	resp, err := client.Get(url)
 	if err != nil {
-		return "", fmt.Errorf("failed to fetch detail for %s: %w", guid, err)
+		return nil, fmt.Errorf("failed to fetch detail for %s: %w", guid, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("unexpected status code: %d for detail %s", resp.StatusCode, guid)
+		return nil, fmt.Errorf("unexpected status code: %d for detail %s", resp.StatusCode, guid)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read detail response: %w", err)
+		return nil, fmt.Errorf("failed to read detail response: %w", err)
 	}
 
 	var result models.WiliiDetailResponse
 	if err := json.Unmarshal(body, &result); err != nil {
-		return "", fmt.Errorf("failed to parse detail JSON: %w", err)
+		return nil, fmt.Errorf("failed to parse detail JSON: %w", err)
 	}
 
 	if !result.Success {
-		return "", fmt.Errorf("detail API error: %s", result.Msg)
+		return nil, fmt.Errorf("detail API error: %s", result.Msg)
 	}
 
-	return result.Response.Description, nil
+	return &result.Response, nil
 }
 
 // ============================================================
@@ -298,6 +301,65 @@ func DeleteOldThumbnail(wp *models.Wallpaper) {
 // Image download and processing
 // ============================================================
 
+type DecodeFailureReason string
+
+const (
+	ReasonFormatUnsupported DecodeFailureReason = "format_unsupported"
+	ReasonDataCorrupted     DecodeFailureReason = "data_corrupted"
+	ReasonMemoryExceeded    DecodeFailureReason = "memory_exceeded"
+	ReasonReadFailed        DecodeFailureReason = "read_failed"
+	ReasonDownloadTruncated DecodeFailureReason = "download_truncated"
+	ReasonUnknown           DecodeFailureReason = "unknown"
+)
+
+type DecodeFailure struct {
+	Reason  DecodeFailureReason
+	Err     error
+	Path    string
+	Attempt int
+}
+
+type LocalSkipResult int
+
+const (
+	SkipNone LocalSkipResult = iota
+	SkipThumbOnly
+	SkipFull
+)
+
+type LocalCheckInfo struct {
+	FileSize int64
+	ImageDPI string
+}
+
+type IntegrityStatus string
+
+const (
+	IntegrityIntact    IntegrityStatus = "intact"
+	IntegrityTruncated IntegrityStatus = "truncated"
+	IntegritySkipped   IntegrityStatus = "skipped"
+)
+
+type IntegrityCheckResult struct {
+	Status       IntegrityStatus
+	ExpectedSize int64
+	ActualSize   int64
+}
+
+type DownloadSource string
+
+const (
+	SourceCDN  DownloadSource = "wilii_cdn"
+	SourceBing DownloadSource = "bing"
+	SourceUHD  DownloadSource = "bing_uhd"
+)
+
+type DownloadData struct {
+	Body   []byte
+	Source DownloadSource
+	URL    string
+}
+
 // DownloadResult holds the result of a download operation
 type DownloadResult struct {
 	FileSize int64  // Original file size in bytes
@@ -310,10 +372,8 @@ func DownloadThumbnailHD(wp *models.Wallpaper) (DownloadResult, error) {
 	return downloadAndProcess(wp, true)
 }
 
-// DownloadThumbnailForWallpaper downloads an image and generates a thumbnail
-func DownloadThumbnailForWallpaper(wp *models.Wallpaper) error {
-	_, err := downloadAndProcess(wp, false)
-	return err
+func DownloadThumbnailForWallpaper(wp *models.Wallpaper) (DownloadResult, error) {
+	return downloadAndProcess(wp, false)
 }
 
 // GetLocalImagePath returns the local image file path in ImageDir.
@@ -323,128 +383,409 @@ func GetLocalImagePath(date string) string {
 	return filepath.Join(ImageDir, relPath)
 }
 
-// downloadAndProcess downloads an image and generates a thumbnail.
-// It first checks for a local image in ImageDir before downloading.
-// When uhd=true, downloads the UHD image, saves it to ImageDir, and makes thumbnail.
-//   - Even if thumbnail exists, still downloads UHD image if not in ImageDir.
-//
-// When uhd=false, uses the appropriate source based on date.
-// Returns download result with file size and actual resolution.
+func checkLocalSkip(wp *models.Wallpaper, localImgPath string) (LocalSkipResult, LocalCheckInfo) {
+	if !FileExists(localImgPath) {
+		return SkipNone, LocalCheckInfo{}
+	}
+
+	size := GetFileSize(localImgPath)
+	if size < MinThumbnailSize {
+		return SkipNone, LocalCheckInfo{}
+	}
+
+	f, err := os.Open(localImgPath)
+	if err != nil {
+		return SkipNone, LocalCheckInfo{}
+	}
+	defer f.Close()
+
+	cfg, _, err := image.DecodeConfig(f)
+	if err != nil {
+		return SkipNone, LocalCheckInfo{}
+	}
+
+	info := LocalCheckInfo{
+		FileSize: size,
+		ImageDPI: fmt.Sprintf("%dx%d", cfg.Width, cfg.Height),
+	}
+
+	needsRebuild, _ := NeedsRebuildThumbnail(wp)
+	if needsRebuild {
+		return SkipThumbOnly, info
+	}
+
+	return SkipFull, info
+}
+
+func generateThumbnailFromLocal(wp *models.Wallpaper, localImgPath string) error {
+	relPath := GetThumbnailPath(wp.Date)
+	thumbPath := filepath.Join(ThumbDir, relPath)
+
+	f, err := os.Open(localImgPath)
+	if err != nil {
+		return fmt.Errorf("failed to open local image: %w", err)
+	}
+	defer f.Close()
+
+	img, _, err := image.Decode(f)
+	if err != nil {
+		return fmt.Errorf("failed to decode local image: %w", err)
+	}
+
+	thumbnail := resizeAndCrop(img)
+
+	if err := EnsureDirectory(filepath.Dir(thumbPath)); err != nil {
+		return fmt.Errorf("failed to create thumbnail directory: %w", err)
+	}
+
+	if err := saveThumbnail(thumbnail, thumbPath); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func repairCorruptedImage(wp *models.Wallpaper, uhd bool, localImgPath string, failure *DecodeFailure) {
+	strategy := "single_source_retry"
+	if wp.Date < "2019-07-01" && !uhd {
+		strategy = "multi_source_fallback"
+	}
+
+	if strings.Contains(failure.Err.Error(), "short Huffman data") {
+		log.Printf("[Phase 3] Corrupted image detected [%s]: %s (truncated_type) (%s)",
+			wp.Date, failure.Reason, failure.Err)
+	} else {
+		log.Printf("[Phase 3] Corrupted image detected [%s]: %s (%s)",
+			wp.Date, failure.Reason, failure.Err)
+	}
+
+	os.Remove(localImgPath)
+
+	body, err := downloadRemoteImage(wp, uhd)
+	if err != nil {
+		logRepairResult(wp.Date, failure.Reason, strategy, "abandoned", err)
+		return
+	}
+
+	img, decodeFailure := decodeImage(body)
+	if decodeFailure != nil {
+		logRepairResult(wp.Date, failure.Reason, strategy, "abandoned", decodeFailure.Err)
+		return
+	}
+
+	if err := EnsureDirectory(filepath.Dir(localImgPath)); err == nil {
+		os.WriteFile(localImgPath, body, 0644)
+	}
+
+	thumbPath := filepath.Join(ThumbDir, GetThumbnailPath(wp.Date))
+	if !FileExists(thumbPath) {
+		thumbnail := resizeAndCrop(img)
+		if err := EnsureDirectory(filepath.Dir(thumbPath)); err == nil {
+			saveThumbnail(thumbnail, thumbPath)
+		}
+	}
+
+	logRepairResult(wp.Date, failure.Reason, strategy, "repaired", nil)
+}
+
 func downloadAndProcess(wp *models.Wallpaper, uhd bool) (DownloadResult, error) {
 	relPath := GetThumbnailPath(wp.Date)
 	thumbPath := filepath.Join(ThumbDir, relPath)
 	localImgPath := GetLocalImagePath(wp.Date)
 
-	var body []byte
-	var err error
+	skipResult, localInfo := checkLocalSkip(wp, localImgPath)
+
+	switch skipResult {
+	case SkipFull:
+		log.Printf("[Phase 3] Skipped [%s]: local image and thumbnail already exist", wp.Date)
+		return DownloadResult{
+			FileSize: localInfo.FileSize,
+			ImageDPI: localInfo.ImageDPI,
+		}, nil
+
+	case SkipThumbOnly:
+		log.Printf("[Phase 3] Skipped download [%s]: local image exists, generating thumbnail from local", wp.Date)
+		if err := generateThumbnailFromLocal(wp, localImgPath); err != nil {
+			log.Printf("[Phase 3] Failed to generate thumbnail from local [%s]: %v, falling back to download", wp.Date, err)
+			repairCorruptedImage(wp, uhd, localImgPath, &DecodeFailure{
+				Reason: classifyDecodeError(err),
+				Err:    err,
+				Path:   localImgPath,
+			})
+		} else {
+			return DownloadResult{
+				FileSize: localInfo.FileSize,
+				ImageDPI: localInfo.ImageDPI,
+			}, nil
+		}
+	}
+
 	var result DownloadResult
 
-	// First, try to read from local image directory
-	if FileExists(localImgPath) {
-		body, err = os.ReadFile(localImgPath)
-		if err == nil {
-			result.FileSize = int64(len(body))
-		}
-	}
+	for attempt := 0; attempt <= MaxDownloadRetry; attempt++ {
+		body, isLocal, readErr := fetchImageData(wp, uhd, localImgPath, &result)
 
-	if len(body) == 0 {
-		if uhd {
-			// UHD mode: download high-res image directly
-			uhdURL := GetBingImageURLHD(wp.Slug)
-			if uhdURL == "" {
-				return DownloadResult{}, fmt.Errorf("no UHD URL for slug: %s", wp.Slug)
-			}
-			body, err = downloadImage(uhdURL)
-			if err != nil {
-				return DownloadResult{}, fmt.Errorf("UHD download failed for %s: %w", wp.Slug, err)
-			}
-			result.FileSize = int64(len(body))
-		} else if wp.Date >= "2019-07-01" {
-			// After 2019-07-01 (non-UHD): download 1920x1080 from Bing
-			bingURL := GetBingImageURL(wp.Slug, "1920x1080")
-			if bingURL != "" {
-				body, err = downloadImage(bingURL)
-			}
-			if err != nil {
-				return DownloadResult{}, fmt.Errorf("download failed for %s: %w", wp.Slug, err)
-			}
-			result.FileSize = int64(len(body))
-		} else {
-			// Before 2019-07-01: use wilii source URL first, fallback to Bing
-			sourceURL := BuildSourceURL(wp.Date, wp.Slug, wp.ImageDPI)
-			bingURL := GetBingImageURL(wp.Slug, wp.ImageDPI)
-
-			if sourceURL != "" {
-				body, err = downloadImage(sourceURL)
-			}
-			if err != nil && bingURL != "" {
-				body, err = downloadImage(bingURL)
-			}
-			if err != nil {
-				return DownloadResult{}, fmt.Errorf("download failed for %s: %w", wp.Slug, err)
-			}
-			result.FileSize = int64(len(body))
-		}
-	}
-
-	img, err := decodeImage(body)
-	if err != nil {
-		return DownloadResult{}, err
-	}
-
-	// Record actual resolution
-	imgBounds := img.Bounds()
-	result.ImageDPI = fmt.Sprintf("%dx%d", imgBounds.Dx(), imgBounds.Dy())
-
-	// Save original image to ImageDir (if not already there)
-	if !FileExists(localImgPath) {
-		if err := EnsureDirectory(filepath.Dir(localImgPath)); err == nil {
-			os.WriteFile(localImgPath, body, 0644)
-		}
-	}
-
-	// Generate thumbnail only if it doesn't exist
-	if !FileExists(thumbPath) {
-		thumbnail := resizeAndCrop(img)
-
-		if err := EnsureDirectory(filepath.Dir(thumbPath)); err != nil {
-			return DownloadResult{}, fmt.Errorf("failed to create directory: %w", err)
+		if readErr != nil && isLocal {
+			logDecodeFailure(wp.Date, readErr, attempt, false)
+			os.Remove(localImgPath)
+			continue
 		}
 
-		if err := saveThumbnail(thumbnail, thumbPath); err != nil {
-			return DownloadResult{}, err
+		if body == nil {
+			if attempt < MaxDownloadRetry {
+				continue
+			}
+			return DownloadResult{}, fmt.Errorf("download failed after %d attempts", attempt+1)
 		}
+
+		img, failure := decodeImage(body)
+		if failure != nil {
+			failure.Path = localImgPath
+			failure.Attempt = attempt
+
+			if isLocal {
+				os.Remove(localImgPath)
+				repairCorruptedImage(wp, uhd, localImgPath, failure)
+				continue
+			}
+
+			if attempt < MaxDownloadRetry {
+				logDecodeFailure(wp.Date, failure, attempt, false)
+				continue
+			}
+
+			logDecodeFailure(wp.Date, failure, attempt, true)
+			return DownloadResult{}, fmt.Errorf("failed to decode image: %s (%v) (attempts=%d)",
+				failure.Reason, failure.Err, attempt+1)
+		}
+
+		imgBounds := img.Bounds()
+		result.ImageDPI = fmt.Sprintf("%dx%d", imgBounds.Dx(), imgBounds.Dy())
+
+		if !FileExists(localImgPath) {
+			if err := EnsureDirectory(filepath.Dir(localImgPath)); err == nil {
+				os.WriteFile(localImgPath, body, 0644)
+			}
+		}
+
+		if !FileExists(thumbPath) {
+			thumbnail := resizeAndCrop(img)
+
+			if err := EnsureDirectory(filepath.Dir(thumbPath)); err != nil {
+				return DownloadResult{}, fmt.Errorf("failed to create directory: %w", err)
+			}
+
+			if err := saveThumbnail(thumbnail, thumbPath); err != nil {
+				return DownloadResult{}, err
+			}
+		}
+
+		return result, nil
 	}
 
-	return result, nil
+	return DownloadResult{}, fmt.Errorf("failed after %d retries", MaxDownloadRetry)
 }
 
-// downloadImage downloads an image from the given URL and returns the raw bytes
-func downloadImage(url string) ([]byte, error) {
-	client := &http.Client{Timeout: 120 * time.Second}
-	resp, err := client.Get(url)
-	if err != nil {
-		return nil, fmt.Errorf("failed to download image: %w", err)
+func fetchImageData(wp *models.Wallpaper, uhd bool, localImgPath string, result *DownloadResult) ([]byte, bool, *DecodeFailure) {
+	if FileExists(localImgPath) {
+		body, err := os.ReadFile(localImgPath)
+		if err != nil {
+			return nil, true, &DecodeFailure{
+				Reason: ReasonReadFailed,
+				Err:    err,
+				Path:   localImgPath,
+			}
+		}
+		if len(body) > 0 {
+			result.FileSize = int64(len(body))
+			return body, true, nil
+		}
+		os.Remove(localImgPath)
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
+	body, err := downloadRemoteImage(wp, uhd)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read image data: %w", err)
+		reason := ReasonUnknown
+		if strings.Contains(err.Error(), "download truncated") {
+			reason = ReasonDownloadTruncated
+		}
+		return nil, false, &DecodeFailure{
+			Reason: reason,
+			Err:    err,
+		}
+	}
+	result.FileSize = int64(len(body))
+	return body, false, nil
+}
+
+func downloadAndValidate(url string, source DownloadSource, date string) ([]byte, error) {
+	data, contentLength, err := downloadImage(url)
+	if err != nil {
+		return nil, fmt.Errorf("download from %s failed: %w", source, err)
+	}
+	body := data.Body
+
+	checkResult := validateDownloadIntegrity(body, contentLength)
+	if checkResult.Status == IntegrityTruncated {
+		logIntegrityCheck(date, checkResult, source, url)
+		return nil, fmt.Errorf("download truncated: expected %d bytes, got %d bytes",
+			checkResult.ExpectedSize, checkResult.ActualSize)
 	}
 
 	return body, nil
 }
 
-// decodeImage decodes raw bytes into an image.Image
-func decodeImage(data []byte) (image.Image, error) {
+func downloadRemoteImage(wp *models.Wallpaper, uhd bool) ([]byte, error) {
+	if uhd {
+		uhdURL := GetBingImageURLHD(wp.Slug)
+		if uhdURL == "" {
+			return nil, fmt.Errorf("no UHD URL for slug: %s", wp.Slug)
+		}
+		return downloadAndValidate(uhdURL, SourceUHD, wp.Date)
+	}
+
+	if wp.Date >= "2019-07-01" {
+		bingURL := GetBingImageURL(wp.Slug, "1920x1080")
+		if bingURL != "" {
+			return downloadAndValidate(bingURL, SourceBing, wp.Date)
+		}
+		return nil, fmt.Errorf("no download URL for slug: %s", wp.Slug)
+	}
+
+	sourceURL := BuildSourceURL(wp.Date, wp.Slug, wp.ImageDPI)
+	bingURL := GetBingImageURL(wp.Slug, wp.ImageDPI)
+
+	if sourceURL != "" {
+		body, err := downloadAndValidate(sourceURL, SourceCDN, wp.Date)
+		if err == nil {
+			return body, nil
+		}
+		log.Printf("[Phase 3] CDN source failed [%s]: %v, falling back to Bing", wp.Date, err)
+	}
+
+	if bingURL != "" {
+		body, err := downloadAndValidate(bingURL, SourceBing, wp.Date)
+		if err == nil {
+			return body, nil
+		}
+		log.Printf("[Phase 3] Bing source also failed [%s]: %v", wp.Date, err)
+	}
+
+	return nil, fmt.Errorf("download failed for %s: all sources unavailable or corrupted", wp.Slug)
+}
+
+func downloadImage(url string) (*DownloadData, int64, error) {
+	client := &http.Client{Timeout: 120 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to download image: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, 0, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to read image data: %w", err)
+	}
+
+	contentLength := resp.ContentLength
+	return &DownloadData{Body: body}, contentLength, nil
+}
+
+func classifyDecodeError(err error) DecodeFailureReason {
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "unknown format"):
+		return ReasonFormatUnsupported
+	case strings.Contains(msg, "memory") || strings.Contains(msg, "cannot allocate"):
+		return ReasonMemoryExceeded
+	case strings.Contains(msg, "invalid") || strings.Contains(msg, "truncated") ||
+		strings.Contains(msg, "corrupt") || strings.Contains(msg, "short Huffman data"):
+		return ReasonDataCorrupted
+	default:
+		return ReasonUnknown
+	}
+}
+
+func validateDownloadIntegrity(body []byte, contentLength int64) IntegrityCheckResult {
+	actualSize := int64(len(body))
+	if contentLength > 0 {
+		if actualSize == contentLength {
+			return IntegrityCheckResult{
+				Status:       IntegrityIntact,
+				ExpectedSize: contentLength,
+				ActualSize:   actualSize,
+			}
+		}
+		return IntegrityCheckResult{
+			Status:       IntegrityTruncated,
+			ExpectedSize: contentLength,
+			ActualSize:   actualSize,
+		}
+	}
+	return IntegrityCheckResult{
+		Status:       IntegritySkipped,
+		ExpectedSize: 0,
+		ActualSize:   actualSize,
+	}
+}
+
+func logIntegrityCheck(date string, result IntegrityCheckResult, source DownloadSource, url string) {
+	diff := result.ExpectedSize - result.ActualSize
+	log.Printf("[Phase 3] Download truncated [%s]: expected %d bytes, got %d bytes (diff=%d) source=%s url=%s",
+		date, result.ExpectedSize, result.ActualSize, diff, source, url)
+}
+
+func logRepairResult(date string, triggerReason DecodeFailureReason, strategy string, outcome string, err error) {
+	if outcome == "repaired" {
+		log.Printf("[Phase 3] Image repaired [%s]: trigger=%s strategy=%s result=%s",
+			date, triggerReason, strategy, outcome)
+	} else {
+		log.Printf("[Phase 3] Image repair abandoned [%s]: trigger=%s strategy=%s result=%s error=%v",
+			date, triggerReason, strategy, outcome, err)
+	}
+}
+
+func detectSmallOrCorruptFile(data []byte) (bool, DecodeFailureReason) {
+	if len(data) == 0 {
+		return true, ReasonDataCorrupted
+	}
+	if int64(len(data)) < MinThumbnailSize {
+		return true, ReasonDataCorrupted
+	}
+	return false, ""
+}
+
+func logDecodeFailure(date string, failure *DecodeFailure, attempt int, abandoned bool) {
+	detail := failure.Err.Error()
+	maxAttempt := MaxDownloadRetry + 1
+	if abandoned {
+		log.Printf("[Phase 3] Failed HD [%s]: decode abandoned: %s (%s) (attempts=%d)",
+			date, failure.Reason, detail, attempt+1)
+	} else {
+		log.Printf("[Phase 3] Failed HD [%s]: failed to decode image: %s (%s) (attempt=%d/%d)",
+			date, failure.Reason, detail, attempt+1, maxAttempt)
+	}
+}
+
+func decodeImage(data []byte) (image.Image, *DecodeFailure) {
+	if corrupt, reason := detectSmallOrCorruptFile(data); corrupt {
+		return nil, &DecodeFailure{
+			Reason: reason,
+			Err:    fmt.Errorf("file too small: %d bytes", len(data)),
+		}
+	}
+
 	img, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode image: %w", err)
+		reason := classifyDecodeError(err)
+		return nil, &DecodeFailure{
+			Reason: reason,
+			Err:    err,
+		}
 	}
 	return img, nil
 }

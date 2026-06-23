@@ -87,6 +87,7 @@
       return m('header.Header', [
         m('.container', [
           m('.Header-primary', [
+            m('img.Header-logo', { src: '/static/logo-lake.svg', alt: 'Logo' }),
             m('h1.Header-title', [
               m(m.route.Link, { href: '/' + String(new Date().getFullYear()) + String(new Date().getMonth() + 1).padStart(2, '0') }, 'Bing Wallpaper'),
             ]),

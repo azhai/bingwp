@@ -13,6 +13,7 @@ test_*
 .DS_Store
 
 # IDE
+.arts/
 .idea/
 .vscode/
 .superpowers/

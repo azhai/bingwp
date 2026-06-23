@@ -1,7 +1,6 @@
 package services
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/azhai/bingwp/models"
@@ -17,12 +16,11 @@ func getDB() *models.Database {
 // InsertWallpaperIgnore inserts a wallpaper, ignoring if date already exists
 func InsertWallpaperIgnore(wp *models.Wallpaper) error {
 	db := getDB()
-	ctx := context.Background()
-	sql := `INSERT OR IGNORE INTO wallpapers (guid, date, slug, title, headline, copyright, description, image_dpi, file_size) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	return db.RawExecContext(ctx, sql,
-		wp.GUID, wp.Date, wp.Slug, wp.Title, wp.Headline,
-		wp.Copyright, wp.Description, wp.ImageDPI, wp.FileSize,
-	)
+	err := db.Wallpaper.Insert().One(wp)
+	if err != nil && isUniqueConstraintError(err) {
+		return nil
+	}
+	return err
 }
 
 // BatchInsertWallpapersIgnore inserts multiple wallpapers in a single transaction,
@@ -36,11 +34,12 @@ func BatchInsertWallpapersIgnore(wallpapers []*models.Wallpaper) (int, error) {
 	inserted := 0
 	err := db.BeginTransaction(func(tx model.Transaction) error {
 		for _, wp := range wallpapers {
-			sql := `INSERT OR IGNORE INTO wallpapers (guid, date, slug, title, headline, copyright, description, image_dpi, file_size) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-			qr := model.CreateQuery(sql, []any{wp.GUID, wp.Date, wp.Slug, wp.Title, wp.Headline,
-				wp.Copyright, wp.Description, wp.ImageDPI, wp.FileSize})
-			if err := tx.ExecContext(context.Background(), &qr); err != nil {
+			err := db.Wallpaper.Insert().OnTransaction(tx).One(wp)
+			if err != nil && isUniqueConstraintError(err) {
 				continue
+			}
+			if err != nil {
+				return err
 			}
 			inserted++
 		}
@@ -52,8 +51,14 @@ func BatchInsertWallpapersIgnore(wallpapers []*models.Wallpaper) (int, error) {
 	return inserted, nil
 }
 
-// BatchUpdateDescriptions updates description for multiple wallpapers by GUID in a single transaction
-func BatchUpdateDescriptions(updates []DescriptionUpdate) error {
+// FieldUpdate holds a GUID and the column-value pairs to update
+type FieldUpdate struct {
+	GUID  string
+	Pairs []goent.Pair
+}
+
+// BatchUpdateWallpaperFields updates multiple fields for multiple wallpapers by GUID in a single transaction
+func BatchUpdateWallpaperFields(updates []FieldUpdate) error {
 	if len(updates) == 0 {
 		return nil
 	}
@@ -61,10 +66,14 @@ func BatchUpdateDescriptions(updates []DescriptionUpdate) error {
 	db := getDB()
 	return db.BeginTransaction(func(tx model.Transaction) error {
 		for _, u := range updates {
-			sql := `UPDATE wallpapers SET description = ? WHERE guid = ?`
-			qr := model.CreateQuery(sql, []any{u.Description, u.GUID})
-			if err := tx.ExecContext(context.Background(), &qr); err != nil {
-				return fmt.Errorf("update description for %s failed: %w", u.GUID, err)
+			if len(u.Pairs) == 0 {
+				continue
+			}
+			err := db.Wallpaper.Update().OnTransaction(tx).
+				Set(u.Pairs...).
+				Where("guid = ?", u.GUID).Exec()
+			if err != nil {
+				return fmt.Errorf("update fields for %s failed: %w", u.GUID, err)
 			}
 		}
 		return nil
@@ -80,20 +89,15 @@ func BatchUpdateFileSizes(updates []FileSizeUpdate) error {
 	db := getDB()
 	return db.BeginTransaction(func(tx model.Transaction) error {
 		for _, u := range updates {
-			sql := `UPDATE wallpapers SET file_size = ? WHERE guid = ?`
-			qr := model.CreateQuery(sql, []any{u.FileSize, u.GUID})
-			if err := tx.ExecContext(context.Background(), &qr); err != nil {
+			err := db.Wallpaper.Update().OnTransaction(tx).
+				Set(goent.Pair{Key: "file_size", Value: u.FileSize}).
+				Where("guid = ?", u.GUID).Exec()
+			if err != nil {
 				return fmt.Errorf("update file_size for %s failed: %w", u.GUID, err)
 			}
 		}
 		return nil
 	})
-}
-
-// DescriptionUpdate holds data for a batch description update
-type DescriptionUpdate struct {
-	GUID        string
-	Description string
 }
 
 // FileSizeUpdate holds data for a batch file_size update
@@ -122,45 +126,25 @@ func GetWallpapersByMonth(year, month int) ([]*models.Wallpaper, error) {
 // UpdateDescription updates the description field of a wallpaper by GUID
 func UpdateDescription(guid, description string) error {
 	db := getDB()
-	ctx := context.Background()
-	sql := `UPDATE wallpapers SET description = ? WHERE guid = ?`
-	return db.RawExecContext(ctx, sql, description, guid)
+	return db.Wallpaper.Update().
+		Set(goent.Pair{Key: "description", Value: description}).
+		Where("guid = ?", guid).Exec()
 }
 
 // UpdateFileSize updates the file_size field of a wallpaper by GUID
 func UpdateFileSize(guid string, fileSize int64) error {
 	db := getDB()
-	ctx := context.Background()
-	sql := `UPDATE wallpapers SET file_size = ? WHERE guid = ?`
-	return db.RawExecContext(ctx, sql, fileSize, guid)
+	return db.Wallpaper.Update().
+		Set(goent.Pair{Key: "file_size", Value: fileSize}).
+		Where("guid = ?", guid).Exec()
 }
 
 // UpdateImageDPI updates the image_dpi field of a wallpaper by GUID
 func UpdateImageDPI(guid, imageDPI string) error {
 	db := getDB()
-	ctx := context.Background()
-	sql := `UPDATE wallpapers SET image_dpi = ? WHERE guid = ?`
-	return db.RawExecContext(ctx, sql, imageDPI, guid)
-}
-
-// GetWallpapersWithoutDescription returns wallpapers that have no description
-// Only checks wallpapers from 2014-05-01 onwards, as earlier ones have no description
-func GetWallpapersWithoutDescription() ([]*models.Wallpaper, error) {
-	db := getDB()
-	filter := goent.And(
-		goent.GreaterEquals(db.Wallpaper.Field("date"), "2014-05-01"),
-		goent.Or(
-			goent.IsNull(db.Wallpaper.Field("description")),
-			goent.Equals(db.Wallpaper.Field("description"), ""),
-		),
-	)
-	return db.Wallpaper.Filter(filter).Select().OrderBy("date ASC").All()
-}
-
-// GetAllWallpapersOrdered returns all wallpapers ordered by date ascending
-func GetAllWallpapersOrdered() ([]*models.Wallpaper, error) {
-	db := getDB()
-	return db.Wallpaper.Select().OrderBy("date ASC").All()
+	return db.Wallpaper.Update().
+		Set(goent.Pair{Key: "image_dpi", Value: imageDPI}).
+		Where("guid = ?", guid).Exec()
 }
 
 // GetRecentWallpapers returns the most recent N wallpapers ordered by date descending
@@ -172,7 +156,6 @@ func GetRecentWallpapers(limit int) ([]*models.Wallpaper, error) {
 // GetDateRange returns the earliest and latest dates in the database
 func GetDateRange() (earliest, latest string, err error) {
 	db := getDB()
-	// Latest
 	qLatest := db.Wallpaper.Select("date").OrderBy("date DESC").Take(1)
 	obj, e := qLatest.One()
 	if e != nil || obj == nil {
@@ -180,7 +163,6 @@ func GetDateRange() (earliest, latest string, err error) {
 	} else {
 		latest = obj.Date
 	}
-	// Earliest
 	qEarliest := db.Wallpaper.Select("date").OrderBy("date ASC").Take(1)
 	obj, e = qEarliest.One()
 	if e != nil || obj == nil {
@@ -189,4 +171,28 @@ func GetDateRange() (earliest, latest string, err error) {
 		earliest = obj.Date
 	}
 	return earliest, latest, nil
+}
+
+// isUniqueConstraintError checks if the error is a unique constraint violation
+func isUniqueConstraintError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return contains(msg, "UNIQUE constraint failed") ||
+		contains(msg, "duplicate key") ||
+		contains(msg, "Duplicate entry")
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && searchString(s, substr)
+}
+
+func searchString(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }

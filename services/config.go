@@ -1,6 +1,12 @@
 package services
 
-import "github.com/azhai/goent/utils"
+import (
+	"os"
+	"path/filepath"
+
+	"github.com/azhai/goent/drivers"
+	"github.com/azhai/goent/utils"
+)
 
 // Config holds application configuration loaded from .env
 type Config struct {
@@ -11,8 +17,17 @@ type Config struct {
 	ImageDir string
 	ThumbDir string
 	LogFile  string
-	DBType   string
-	DBDSN    string
+	Database drivers.DatabaseConfig
+}
+
+func (c *Config) GetCertFile() (string, string, bool) {
+	var err error
+	certPath := filepath.Join(c.CertDir, "cert.pem")
+	keyPath := filepath.Join(c.CertDir, "key.pem")
+	if _, err = os.Stat(certPath); err == nil {
+		_, err = os.Stat(keyPath)
+	}
+	return certPath, keyPath, err == nil
 }
 
 // LoadConfig loads configuration from .env file with defaults.
@@ -27,7 +42,6 @@ func LoadConfig() *Config {
 		ImageDir: env.GetStr("IMAGE_DIR", "./images"),
 		ThumbDir: env.GetStr("THUMB_DIR", "./thumbs"),
 		LogFile:  env.GetStr("LOG_FILE", "./logs/access.log"),
-		DBType:   env.GetStr("DB_TYPE", "sqlite"),
-		DBDSN:    env.GetStr("DB_DSN", "bingwp.db"),
+		Database: drivers.LoadConfig(env, "bingwp.db"),
 	}
 }

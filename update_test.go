@@ -8,6 +8,7 @@ import (
 
 	"github.com/azhai/bingwp/models"
 	"github.com/azhai/bingwp/services"
+	"github.com/azhai/goent/drivers"
 )
 
 func TestUpdateCmd_Run(t *testing.T) {
@@ -20,9 +21,11 @@ func TestUpdateCmd_Run(t *testing.T) {
 
 	os.Setenv("DB_PATH", dbPath)
 	os.Setenv("IMAGE_DIR", tmpDir)
+	os.Setenv("THUMB_DIR", tmpDir)
 	defer func() {
 		os.Unsetenv("DB_PATH")
 		os.Unsetenv("IMAGE_DIR")
+		os.Unsetenv("THUMB_DIR")
 	}()
 
 	cmd := &UpdateCmd{}
@@ -33,7 +36,11 @@ func TestUpdateCmd_Run(t *testing.T) {
 
 	t.Logf("Update completed in %v", duration)
 
-	_, err := models.InitDB(dbPath, tmpDir)
+	cfg := drivers.DatabaseConfig{
+		Type: "sqlite",
+		DSN:  dbPath,
+	}
+	_, err := models.OpenDB(cfg)
 	if err != nil {
 		t.Fatalf("failed to open db: %v", err)
 	}
