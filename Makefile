@@ -1,63 +1,39 @@
-SINGLETON = bwp
-COMMANDS  =
+APP       = bwp
+BIN_DIR   = bin
+COMMANDS  := $(notdir $(patsubst %/.,%,$(wildcard cmd/*/.)))
 
+VERSION   ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+RELEASE    = -ldflags "-s -w -X main.Version=$(VERSION)"
+GOBUILD    = go build $(RELEASE)
 
-ifndef GOAMD64
-	GOAMD64 = v2
-endif
-GOOS    = $(shell uname -s | tr [A-Z] [a-z])
-GOARCH  = $(shell uname -m | tr [A-Z] [a-z])
-ifeq ($(GOARCH), amd64)
-	GOARGS = GOAMD64=$(GOAMD64)
-else
-	GOARGS =
-endif
-
-GOBIN    = go
-UPXBIN   = upx
-RELEASE  = "-s -w"
-GOBUILD  = $(GOARGS) $(GOBIN) build -ldflags=$(RELEASE)
-BINFILES = $(SINGLETON) $(COMMANDS)
-
-
-.PHONY: one all build clean upx upxx $(BINFILES)
+.PHONY: one all build run clean
 
 one:
-	@echo "Compile one ($(GOOS)/$(GOARCH)) ..."
-ifneq ($(SINGLETON),)
-		CGO_ENABLED=1 $(GOBUILD) -o ./bin/$(SINGLETON) ./
-endif
-	for one in $(COMMANDS); do \
-		CGO_ENABLED=1 $(GOBUILD) -o ./bin/$$one ./cmd/$$one; \
+	@echo "Build $(APP) (local) ..."
+	mkdir -p $(BIN_DIR)
+	CGO_ENABLED=0 $(GOBUILD) -o $(BIN_DIR)/$(APP) ./
+	@for cmd in $(COMMANDS); do \
+		CGO_ENABLED=0 $(GOBUILD) -o $(BIN_DIR)/$$cmd ./cmd/$$cmd; \
 	done
 
 all: clean one build
 
-build: $(BINFILES)
+build:
+	@echo "Cross-compiling ..."
+	mkdir -p $(BIN_DIR)
+	@for target in $(APP) $(COMMANDS); do \
+		if [ "$$target" = "$(APP)" ]; then src=.; else src=./cmd/$$target; fi; \
+		CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64  $(GOBUILD) -o $(BIN_DIR)/$$target-$(VERSION).darwin-arm64  $$src && \
+		CGO_ENABLED=0 GOOS=darwin  GOARCH=amd64  $(GOBUILD) -o $(BIN_DIR)/$$target-$(VERSION).darwin-amd64  $$src && \
+		CGO_ENABLED=0 GOOS=linux   GOARCH=arm64  $(GOBUILD) -o $(BIN_DIR)/$$target-$(VERSION).linux-arm64   $$src && \
+		CGO_ENABLED=0 GOOS=linux   GOARCH=amd64  $(GOBUILD) -o $(BIN_DIR)/$$target-$(VERSION).linux-amd64   $$src && \
+		CGO_ENABLED=0 GOOS=windows GOARCH=amd64  $(GOBUILD) -o $(BIN_DIR)/$$target-$(VERSION).windows-amd64.exe $$src; \
+	done
 	@echo "✅ Build success."
 
-$(SINGLETON):
-	@echo "Compile $@ ..."
-	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 $(GOBUILD) -o ./bin/$@.darwin-arm64 ./
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 $(GOBUILD) -o ./bin/$@.darwin-amd64 ./
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 $(GOBUILD) -o ./bin/$@.linux-arm64 ./
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -o ./bin/$@.linux-amd64 ./
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GOBUILD) -o ./bin/$@.windows-amd64 ./
-
-$(COMMANDS):
-	@echo "Compile $@ ..."
-	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 $(GOBUILD) -o ./bin/$@.darwin-arm64 ./cmd/$@
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 $(GOBUILD) -o ./bin/$@.darwin-amd64 ./cmd/$@
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 $(GOBUILD) -o ./bin/$@.linux-arm64 ./cmd/$@
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -o ./bin/$@.linux-amd64 ./cmd/$@
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GOBUILD) -o ./bin/$@.windows-amd64 ./cmd/$@
+run:
+	go run ./
 
 clean:
-	rm -f $(BINFILES:%=./bin/%)
+	rm -rf $(BIN_DIR)
 	@echo "✅ Clean complete."
-
-upx: clean one
-	$(UPXBIN) $(BINFILES:%=./bin/%)
-
-upxx: clean one
-	$(UPXBIN) --ultra-brute $(BINFILES:%=./bin/%)
