@@ -4,7 +4,7 @@ go 1.26.4
 
 require (
 	github.com/alexflint/go-arg v1.6.1
-	github.com/azhai/goent v0.9.6
+	github.com/azhai/goent v0.9.8
 	github.com/disintegration/imaging v1.6.2
 )
 
@@ -35,7 +35,7 @@ require (
 	modernc.org/sqlite v1.53.0 // indirect
 )
 
-replace (
-	github.com/azhai/gobus => /opt/repos/gobus
-	github.com/azhai/goent => /opt/repos/goent
-)
+// replace (
+// 	github.com/azhai/gobus => ../gobus
+// 	github.com/azhai/goent => ../goent
+// )
