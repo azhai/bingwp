@@ -75,7 +75,8 @@
     if (ym) {
       fetchWallpapers(ym.year, ym.month);
     } else {
-      fetchWallpapers(state.year, state.month);
+      var now = new Date();
+      fetchWallpapers(now.getFullYear(), now.getMonth() + 1);
     }
   }
 
@@ -83,13 +84,13 @@
 
   // Header
   var Header = {
-    view: function () {
+      view: function () {
       return m('header.Header', [
         m('.container', [
           m('.Header-primary', [
             m('img.Header-logo', { src: '/static/logo-lake.svg', alt: 'Logo' }),
             m('h1.Header-title', [
-              m(m.route.Link, { href: '/' + String(new Date().getFullYear()) + String(new Date().getMonth() + 1).padStart(2, '0') }, 'Bing Wallpaper'),
+              m(m.route.Link, { href: '/' }, 'Bing Wallpaper'),
             ]),
           ]),
           m('.Header-secondary', [
@@ -226,7 +227,8 @@
     }
   });
 
-  m.route(document.getElementById('app'), '/' + String(state.year) + String(state.month).padStart(2, '0'), {
+  m.route(document.getElementById('app'), '/', {
+    '/': IndexPage,
     '/:ym': IndexPage,
   });
 })();

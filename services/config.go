@@ -4,8 +4,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/azhai/gobus/environ"
 	"github.com/azhai/goent/drivers"
-	"github.com/azhai/goent/utils"
 )
 
 // Config holds application configuration loaded from .env
@@ -33,7 +33,7 @@ func (c *Config) GetCertFile() (string, string, bool) {
 // LoadConfig loads configuration from .env file with defaults.
 // If .env file doesn't exist, falls back to system environment variables.
 func LoadConfig() *Config {
-	env, _ := utils.LoadEnvFile(".env")
+	env, _ := environ.LoadEnvFile(".env")
 	return &Config{
 		AppName:  env.GetStr("APP_NAME", "Bing Wallpaper"),
 		Host:     env.GetStr("HTTP_HOST", "127.0.0.1"),
